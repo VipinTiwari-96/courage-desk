@@ -1,4 +1,5 @@
 import { useStore } from "../../store";
+import logo from "../../assets/logo.png";
 
 type Page =
   | "dashboard"
@@ -54,8 +55,8 @@ export function Sidebar({ current, onNavigate, onAddTrade }: Props) {
         }}
       >
         <img
-          src="./public/favicon/favicon-96x96.png"
-          alt=""
+          src={logo}
+          alt="logo image"
           style={{
             height: "40px",
             width: "40px",
