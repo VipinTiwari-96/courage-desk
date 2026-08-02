@@ -12,8 +12,10 @@ export function Dashboard({ onAddTrade, onTradeClick }: Props) {
   const { trades, theme } = useStore();
   const pnlRef = useRef<HTMLCanvasElement>(null);
   const assetRef = useRef<HTMLCanvasElement>(null);
+  const equityRef = useRef<HTMLCanvasElement>(null);
   const pnlChart = useRef<Chart | null>(null);
   const assetChart = useRef<Chart | null>(null);
+  const equityChart = useRef<Chart | null>(null);
   const stats = calcStats(trades);
 
   const gridColor = theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)';
@@ -61,7 +63,81 @@ export function Dashboard({ onAddTrade, onTradeClick }: Props) {
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 } } }, y: { max: 100, grid: { color: gridColor }, ticks: { callback: (v) => v + '%', color: tickColor, font: { size: 10 } } } } },
     });
 
-    return () => { pnlChart.current?.destroy(); assetChart.current?.destroy(); };
+    // ── Equity curve ──────────────────────────────────────────
+    // Sort trades oldest-first, accumulate running P&L
+    const sorted = [...trades]
+      .filter(t => t.date && t.pnl != null)
+      .sort((a, b) => (a.date! > b.date! ? 1 : -1));
+
+    const equityPoints: { label: string; value: number }[] = [{ label: 'Start', value: 0 }];
+    let running = 0;
+    sorted.forEach(t => {
+      running += t.pnl ?? 0;
+      const d = new Date(t.date!);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      equityPoints.push({ label, value: parseFloat(running.toFixed(2)) });
+    });
+
+    if (equityRef.current && equityPoints.length > 1) {
+      if (equityChart.current) equityChart.current.destroy();
+      const isProfit = equityPoints[equityPoints.length - 1].value >= 0;
+      const lineColor = isProfit ? '#22c55e' : '#ef4444';
+      const fillColor = isProfit ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+      equityChart.current = new Chart(equityRef.current, {
+        type: 'line',
+        data: {
+          labels: equityPoints.map(p => p.label),
+          datasets: [{
+            data: equityPoints.map(p => p.value),
+            borderColor: lineColor,
+            borderWidth: 2,
+            backgroundColor: fillColor,
+            fill: true,
+            tension: 0.35,
+            pointRadius: equityPoints.length > 60 ? 0 : 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: lineColor,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const v = ctx.parsed.y;
+                  return ` $${(v ?? 0) >= 0 ? '+' : ''}${(v ?? 0).toFixed(2)}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { color: gridColor },
+              ticks: {
+                color: tickColor,
+                font: { size: 10 },
+                maxTicksLimit: 10,
+                maxRotation: 0,
+              },
+            },
+            y: {
+              grid: { color: gridColor },
+              ticks: {
+                color: tickColor,
+                font: { size: 10 },
+                callback: (v) => `$${v}`,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    return () => { pnlChart.current?.destroy(); assetChart.current?.destroy(); equityChart.current?.destroy(); };
   }, [trades, theme]);
 
   const pnlCls = stats.totalPnl >= 0 ? 'green' : 'red';
@@ -108,6 +184,29 @@ export function Dashboard({ onAddTrade, onTradeClick }: Props) {
           <div className="card-title">🎯 Win Rate by Asset</div>
           <div className="chart-wrap"><canvas ref={assetRef} /></div>
         </div>
+      </div>
+
+      {/* Equity curve — full width */}
+      <div className="card mb-24">
+        <div className="flex-between mb-12">
+          <div>
+            <div className="card-title" style={{ margin: 0 }}>📈 Equity Curve</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
+              Cumulative P&L across all {trades.length} trades
+            </div>
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700 }}
+            className={stats.totalPnl >= 0 ? 'text-green' : 'text-red'}>
+            {stats.totalPnl >= 0 ? '+' : ''}${stats.totalPnl.toFixed(2)}
+          </div>
+        </div>
+        {trades.length < 2 ? (
+          <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            Log at least 2 trades to see your equity curve
+          </div>
+        ) : (
+          <div style={{ height: 180 }}><canvas ref={equityRef} /></div>
+        )}
       </div>
 
       <div className="card">

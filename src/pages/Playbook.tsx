@@ -59,8 +59,18 @@ export function Playbook({ onConfirm, onToast }: Props) {
               onClick={() => setDetailEntry(e)}
             >
               <div className="flex-between mb-8">
-                <div className="playbook-name">{e.name}</div>
-                <div className="flex gap-8">
+                <div className="flex gap-8" style={{ alignItems: 'center', minWidth: 0 }}>
+                  <div className="playbook-name" style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                  {e.quality && (
+                    <span
+                      className={`badge ${e.quality === 'A+' ? 'badge-aplus' : 'badge-a'}`}
+                      style={{ fontSize: 11, flexShrink: 0 }}
+                    >
+                      {e.quality}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-8" style={{ flexShrink: 0, marginLeft: 8 }}>
                   <button
                     className="btn-icon btn-sm"
                     onClick={(ev) => {
