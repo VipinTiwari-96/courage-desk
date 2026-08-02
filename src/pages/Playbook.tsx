@@ -190,7 +190,14 @@ export function Playbook({ onConfirm, onToast }: Props) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="modal-header">
-                <div className="modal-title">{detailEntry.name}</div>
+                <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {detailEntry.name}
+                {detailEntry.quality && (
+                  <span className={`badge ${detailEntry.quality === 'A+' ? 'badge-aplus' : 'badge-a'}`} style={{ fontSize: 12 }}>
+                    {detailEntry.quality}
+                  </span>
+                )}
+              </div>
                 <button
                   className="close-btn"
                   onClick={() => setDetailEntry(null)}

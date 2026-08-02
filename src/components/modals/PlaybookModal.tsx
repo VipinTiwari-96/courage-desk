@@ -28,6 +28,8 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
   }, [entry]);
 
   const set = (key: keyof PlaybookEntry, value: string) => setForm(f => ({ ...f, [key]: value }));
+  const setQuality = (val: 'A+' | 'A') =>
+    setForm(f => ({ ...f, quality: f.quality === val ? undefined : val }));
 
   const openSlot = (i: number) => { slotRef.current = i; fileInputRef.current?.click(); };
 
@@ -61,6 +63,38 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
               <label className="form-label">Setup Name *</label>
               <input className="form-control" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. London Open Sweep" />
             </div>
+
+            {/* Setup quality tag */}
+            <div className="form-group">
+              <label className="form-label">
+                Setup Quality
+                <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                  How would you grade this setup?
+                </span>
+              </label>
+              <div className="quality-selector" style={{ maxWidth: 220 }}>
+                {(['A+', 'A'] as const).map(val => {
+                  const cls = val === 'A+' ? 'active-aplus' : 'active-a';
+                  const hint = val === 'A+' ? 'Highest-conviction, cleanest setup' : 'Solid, well-defined setup';
+                  return (
+                    <button
+                      key={val}
+                      className={`quality-btn${form.quality === val ? ' ' + cls : ''}`}
+                      onClick={() => setQuality(val)}
+                      title={hint}
+                    >
+                      {val}
+                    </button>
+                  );
+                })}
+                {!form.quality && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center', marginLeft: 6 }}>
+                    (optional)
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div className="form-group">
               <label className="form-label">Description</label>
               <textarea className="form-control" rows={3} value={form.desc || ''} onChange={e => set('desc', e.target.value)} placeholder="Describe the setup..." />

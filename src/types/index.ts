@@ -1,6 +1,6 @@
 export type TradeResult = 'Win' | 'Loss' | 'Breakeven';
 export type TradeDirection = 'Buy' | 'Sell';
-export type TradeQuality = 'A+' | 'A' | 'B' | 'C';
+export type TradeQuality = 'A+' | 'A' | 'B';
 
 export interface Trade {
   id?: number;
@@ -36,6 +36,7 @@ export interface Trade {
 export interface PlaybookEntry {
   id?: number;
   name: string;
+  quality?: 'A+' | 'A';   // A+ = highest-conviction setup, A = solid setup
   desc?: string;
   rules?: string;
   timeframes?: string;

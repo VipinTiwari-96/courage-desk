@@ -12,20 +12,48 @@ interface Props {
 }
 
 function emptyTrade(): Partial<Trade> {
-  return { date: nowDatetimeLocal(), confirmations: [], mistakes: [], rules: [], exitRating: 0 };
+  return { date: nowDatetimeLocal(), confirmations: [], mistakes: [], rules: [], exitRating: 0, quality: 'B' };
 }
 
 export function TradeModal({ trade, onClose, onSave }: Props) {
-  const { settings, saveTrade } = useStore();
+  const { settings, saveTrade, playbook } = useStore();
   const [form, setForm] = useState<Partial<Trade>>(emptyTrade());
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Track whether user has manually picked a quality or if it's auto-assigned
+  const [qualityLocked, setQualityLocked] = useState(false);
 
   useEffect(() => {
-    setForm(trade ? { ...trade } : emptyTrade());
+    if (trade) {
+      setForm({ ...trade });
+      setQualityLocked(!!trade.quality && trade.quality !== 'B');
+    } else {
+      setForm(emptyTrade());
+      setQualityLocked(false);
+    }
   }, [trade]);
 
+  // Auto-set quality to 'B' when setup field changes and quality hasn't been manually locked
+  const handleSetupChange = (setupName: string) => {
+    setForm(f => {
+      const isInPlaybook = playbook.some(
+        p => p.name.trim().toLowerCase() === setupName.trim().toLowerCase()
+      );
+      // If no setup selected OR setup not in playbook → quality = B (unless user manually picked A+ or A)
+      if (!qualityLocked) {
+        return { ...f, setup: setupName, quality: (setupName && isInPlaybook) ? f.quality : 'B' };
+      }
+      return { ...f, setup: setupName };
+    });
+  };
+
   const set = (key: keyof Trade, value: unknown) => setForm(f => ({ ...f, [key]: value }));
+
+  const setQuality = (val: TradeQuality) => {
+    // If user explicitly clicks a quality button, lock it
+    setQualityLocked(true);
+    set('quality', val);
+  };
 
   const toggleList = (key: 'confirmations' | 'mistakes', val: string) => {
     const arr = (form[key] as string[]) || [];
@@ -60,10 +88,16 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
     onClose();
   };
 
-  const qualityMap: { val: TradeQuality; cls: string }[] = [
-    { val: 'A+', cls: 'active-aplus' }, { val: 'A', cls: 'active-a' },
-    { val: 'B', cls: 'active-b' }, { val: 'C', cls: 'active-c' },
+  // Only 3 quality options now: A+, A, B
+  const qualityMap: { val: TradeQuality; cls: string; label: string; hint: string }[] = [
+    { val: 'A+', cls: 'active-aplus', label: 'A+', hint: 'Highest-conviction setup from your playbook' },
+    { val: 'A',  cls: 'active-a',    label: 'A',  hint: 'Solid playbook setup with full confirmation' },
+    { val: 'B',  cls: 'active-b',    label: 'B',  hint: 'Setup not in playbook or partial confirmation' },
   ];
+
+  const isInPlaybook = form.setup
+    ? playbook.some(p => p.name.trim().toLowerCase() === (form.setup || '').trim().toLowerCase())
+    : false;
 
   return (
     <>
@@ -117,14 +151,49 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                     <option>Scalp (1m-5m)</option><option>Intraday (15m-1H)</option><option>Swing (4H-1D)</option>
                   </select>
                 </div>
+
+                {/* Trade Quality — 3 options only */}
                 <div className="form-group">
-                  <label className="form-label">Trade Quality</label>
+                  <label className="form-label">
+                    Trade Quality
+                    {!form.setup || !isInPlaybook ? (
+                      <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--yellow)', fontWeight: 400 }}>
+                        ⚡ Auto-set to B (setup not in playbook)
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--green)', fontWeight: 400 }}>
+                        ✓ Playbook setup — select grade
+                      </span>
+                    )}
+                  </label>
                   <div className="quality-selector">
-                    {qualityMap.map(({ val, cls }) => (
-                      <button key={val} className={`quality-btn${form.quality === val ? ' ' + cls : ''}`}
-                        onClick={() => set('quality', form.quality === val ? undefined : val)}>{val}</button>
+                    {qualityMap.map(({ val, cls, label, hint }) => (
+                      <button
+                        key={val}
+                        className={`quality-btn${form.quality === val ? ' ' + cls : ''}`}
+                        onClick={() => setQuality(val)}
+                        title={hint}
+                        style={val === 'B' && (!form.setup || !isInPlaybook) ? { opacity: 1 } : {}}
+                      >
+                        {label}
+                      </button>
                     ))}
                   </div>
+                  {qualityLocked && (
+                    <div
+                      style={{ marginTop: 5, fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', display: 'inline-block' }}
+                      onClick={() => {
+                        setQualityLocked(false);
+                        // Re-evaluate auto
+                        const inPb = form.setup
+                          ? playbook.some(p => p.name.trim().toLowerCase() === (form.setup || '').trim().toLowerCase())
+                          : false;
+                        if (!form.setup || !inPb) set('quality', 'B');
+                      }}
+                    >
+                      ↺ Reset to auto
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -178,10 +247,24 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Setup Name</label>
-                  <select className="form-control" value={form.setup || ''} onChange={e => set('setup', e.target.value)}>
+                  <select className="form-control" value={form.setup || ''} onChange={e => handleSetupChange(e.target.value)}>
                     <option value="">Select setup...</option>
-                    {settings.setups.map(s => <option key={s}>{s}</option>)}
+                    {settings.setups.map(s => {
+                      const pb = playbook.find(p => p.name.trim().toLowerCase() === s.trim().toLowerCase());
+                      return (
+                        <option key={s} value={s}>
+                          {s}{pb ? ` (${pb.quality || 'Playbook'})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {form.setup && (
+                    <div style={{ marginTop: 4, fontSize: 11 }}>
+                      {isInPlaybook
+                        ? <span style={{ color: 'var(--green)' }}>✓ Found in your Playbook</span>
+                        : <span style={{ color: 'var(--yellow)' }}>⚠ Not in Playbook → quality auto-set to B</span>}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
