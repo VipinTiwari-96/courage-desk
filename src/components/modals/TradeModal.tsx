@@ -33,18 +33,22 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
     }
   }, [trade]);
 
-  // Auto-set quality to 'B' when setup field changes and quality hasn't been manually locked
+  // Auto-set quality based on the selected setup's Playbook grade
   const handleSetupChange = (setupName: string) => {
-    setForm(f => {
-      const isInPlaybook = playbook.some(
-        p => p.name.trim().toLowerCase() === setupName.trim().toLowerCase()
-      );
-      // If no setup selected OR setup not in playbook → quality = B (unless user manually picked A+ or A)
-      if (!qualityLocked) {
-        return { ...f, setup: setupName, quality: (setupName && isInPlaybook) ? f.quality : 'B' };
-      }
-      return { ...f, setup: setupName };
-    });
+    // Find matching playbook entry
+    const pbEntry = playbook.find(
+      p => p.name.trim().toLowerCase() === setupName.trim().toLowerCase()
+    );
+
+    if (!qualityLocked) {
+      // Inherit the setup's quality grade directly, fall back to B
+      const autoQuality: TradeQuality = pbEntry?.quality ?? 'B';
+      setQualityLocked(false); // keep unlocked so future setup changes still auto-update
+      setForm(f => ({ ...f, setup: setupName, quality: autoQuality }));
+    } else {
+      // User manually locked quality — just update the setup name
+      setForm(f => ({ ...f, setup: setupName }));
+    }
   };
 
   const set = (key: keyof Trade, value: unknown) => setForm(f => ({ ...f, [key]: value }));
@@ -156,13 +160,17 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                 <div className="form-group">
                   <label className="form-label">
                     Trade Quality
-                    {!form.setup || !isInPlaybook ? (
+                    {!form.setup ? (
+                      <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                        auto-set when you pick a setup
+                      </span>
+                    ) : !isInPlaybook ? (
                       <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--yellow)', fontWeight: 400 }}>
-                        ⚡ Auto-set to B (setup not in playbook)
+                        ⚡ B — setup not in Playbook
                       </span>
                     ) : (
                       <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--green)', fontWeight: 400 }}>
-                        ✓ Playbook setup — select grade
+                        ✓ inherited from Playbook
                       </span>
                     )}
                   </label>
