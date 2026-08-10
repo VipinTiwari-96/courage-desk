@@ -12,7 +12,6 @@ export function ImageUpload({ label, value, onChange, onPreview }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [pasting, setPasting] = useState(false);
-  const areaRef = useRef<HTMLDivElement>(null);
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return;
@@ -27,24 +26,34 @@ export function ImageUpload({ label, value, onChange, onPreview }: Props) {
     if (file) handleFile(file);
   };
 
-  // Handle paste — works both when the area is focused AND globally via Ctrl+V
-  // We use a global paste listener scoped to when this slot has no image yet
-  const handlePaste = async (e: ClipboardEvent) => {
-    // Only handle if no image already assigned and paste contains an image
-    if (value) return;
-    const items = Array.from(e.clipboardData?.items ?? []);
-    const imgItem = items.find(it => it.type.startsWith('image/'));
-    if (!imgItem) return;
-    const file = imgItem.getAsFile();
-    if (!file) return;
-    // Flash the paste indicator
-    setPasting(true);
-    await handleFile(file);
-    setTimeout(() => setPasting(false), 600);
-  };
+  useEffect(() => {
+    const handler = (e: ClipboardEvent) => {
+      // Skip if this slot already has an image
+      if (value) return;
 
-  // Also handle paste directly on the drop-zone div (when focused)
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const imgItem = items.find(it => it.type.startsWith('image/'));
+      if (!imgItem) return;
+
+      const file = imgItem.getAsFile();
+      if (!file) return;
+
+      // ← KEY FIX: stop other ImageUpload instances from also receiving this event
+      e.stopImmediatePropagation();
+
+      setPasting(true);
+      handleFile(file).then(() => setTimeout(() => setPasting(false), 600));
+    };
+
+    // useCapture=true so our handler runs in capture phase —
+    // stopImmediatePropagation() then prevents the sibling listener firing
+    document.addEventListener('paste', handler, true);
+    return () => document.removeEventListener('paste', handler, true);
+  }, [value]);
+
+  // Paste directly on the focused drop-zone (e.g. user clicked the area first)
   const handleDivPaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.stopPropagation();
     const items = Array.from(e.clipboardData.items);
     const imgItem = items.find(it => it.type.startsWith('image/'));
     if (!imgItem) return;
@@ -54,13 +63,6 @@ export function ImageUpload({ label, value, onChange, onPreview }: Props) {
     await handleFile(file);
     setTimeout(() => setPasting(false), 600);
   };
-
-  useEffect(() => {
-    // Attach a global paste listener so Ctrl+V anywhere on page works
-    // Each ImageUpload instance listens, but only accepts if it has no image
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
-  }, [value]); // re-bind when value changes so the guard is fresh
 
   return (
     <div className="form-group">
@@ -77,9 +79,8 @@ export function ImageUpload({ label, value, onChange, onPreview }: Props) {
         </div>
       ) : (
         <div
-          ref={areaRef}
-          tabIndex={0}  // make focusable so paste event fires on the element
-          className={`img-upload-area${dragging ? ' dragover' : ''}${pasting ? ' dragover' : ''}`}
+          tabIndex={0}
+          className={`img-upload-area${dragging || pasting ? ' dragover' : ''}`}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
@@ -90,16 +91,18 @@ export function ImageUpload({ label, value, onChange, onPreview }: Props) {
           <div style={{ fontSize: 26, marginBottom: 6 }}>📷</div>
           <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
             {pasting ? (
-              <span style={{ color: 'var(--accent)' }}>⏳ Pasting image…</span>
+              <span style={{ color: 'var(--accent)' }}>⏳ Pasting…</span>
             ) : (
               <>
                 <div>Drag & drop or <strong style={{ color: 'var(--text-secondary)' }}>click</strong> to upload</div>
                 <div style={{ marginTop: 3, fontSize: 11.5 }}>
-                  or <kbd style={{
+                  or{' '}
+                  <kbd style={{
                     background: 'var(--border)', border: '1px solid var(--border-light)',
                     borderRadius: 4, padding: '1px 5px', fontSize: 11,
-                    fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)'
-                  }}>Ctrl+V</kbd> to paste from clipboard
+                    fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)',
+                  }}>Ctrl+V</kbd>
+                  {' '}to paste from clipboard
                 </div>
               </>
             )}
