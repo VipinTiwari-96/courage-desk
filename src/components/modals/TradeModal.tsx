@@ -246,17 +246,21 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Setup Name</label>
+                  <label className="form-label">
+                    Setup Name
+                    {playbook.length === 0 && (
+                      <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--yellow)', fontWeight: 400 }}>
+                        ⚠ No setups in Playbook yet
+                      </span>
+                    )}
+                  </label>
                   <select className="form-control" value={form.setup || ''} onChange={e => handleSetupChange(e.target.value)}>
                     <option value="">Select setup...</option>
-                    {settings.setups.map(s => {
-                      const pb = playbook.find(p => p.name.trim().toLowerCase() === s.trim().toLowerCase());
-                      return (
-                        <option key={s} value={s}>
-                          {s}{pb ? ` (${pb.quality || 'Playbook'})` : ''}
-                        </option>
-                      );
-                    })}
+                    {playbook.map(pb => (
+                      <option key={pb.id} value={pb.name}>
+                        {pb.quality ? `${pb.quality} · ` : ''}{pb.name}
+                      </option>
+                    ))}
                   </select>
                   {form.setup && (
                     <div style={{ marginTop: 4, fontSize: 11 }}>

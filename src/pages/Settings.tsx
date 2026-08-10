@@ -112,7 +112,6 @@ export function Settings({ onConfirm, onToast }: Props) {
 
   const sections: { key: Category; title: string; icon: string }[] = [
     { key: 'assets',        title: 'Assets',           icon: '💱' },
-    { key: 'setups',        title: 'Setup Names',       icon: '📋' },
     { key: 'sessions',      title: 'Trading Sessions',  icon: '⏰' },
     { key: 'confirmations', title: 'Confirmations',     icon: '✅' },
     { key: 'pois',          title: 'POI Types',         icon: '📍' },
