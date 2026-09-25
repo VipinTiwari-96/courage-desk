@@ -7,7 +7,8 @@ type Page =
   | "trades"
   | "statistics"
   | "playbook"
-  | "settings";
+  | "settings"
+  | "mindsetrisk";
 
 interface Props {
   current: Page;
@@ -21,6 +22,7 @@ const navItems: { page: Page; icon: string; label: string }[] = [
   { page: "trades", icon: "📋", label: "Trades" },
   { page: "statistics", icon: "📉", label: "Statistics" },
   { page: "playbook", icon: "📖", label: "Playbook" },
+  { page: "mindsetrisk", icon: "🧘", label: "Mindset & Risk" },
   { page: "settings", icon: "⚙️", label: "Settings" },
 ];
 
