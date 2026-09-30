@@ -52,17 +52,32 @@ export function Playbook({ onConfirm, onToast }: Props) {
         </div>
       ) : (() => {
         // Group by quality grade: A+ → A → ungraded
-        const groups: { label: string; color: string; bg: string; border: string; icon: string; entries: typeof playbook }[] = [
+        const groups: { label: string; accent: string; textColor: string; dimColor: string; leftBar: string; icon: string; entries: typeof playbook }[] = [
           {
-            label: 'A+ Setups', color: '#bbf7d0', bg: 'rgba(22,101,52,0.18)', border: 'rgba(34,197,94,0.35)', icon: '🏆',
+            label: 'A+ Setups',
+            accent: 'rgba(22,101,52,0.55)',
+            textColor: '#86efac',
+            dimColor: 'rgba(134,239,172,0.55)',
+            leftBar: '#22c55e',
+            icon: '🏆',
             entries: playbook.filter(e => e.quality === 'A+'),
           },
           {
-            label: 'A Setups', color: '#4ade80', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.2)', icon: '✅',
+            label: 'A Setups',
+            accent: 'rgba(34,197,94,0.12)',
+            textColor: '#4ade80',
+            dimColor: 'rgba(74,222,128,0.45)',
+            leftBar: '#4ade80',
+            icon: '✅',
             entries: playbook.filter(e => e.quality === 'A'),
           },
           {
-            label: 'Ungraded Setups', color: 'var(--text-muted)', bg: 'var(--bg-input)', border: 'var(--border)', icon: '📋',
+            label: 'Ungraded Setups',
+            accent: 'var(--bg-input)',
+            textColor: 'var(--text-muted)',
+            dimColor: 'var(--border-light)',
+            leftBar: 'var(--border-light)',
+            icon: '📋',
             entries: playbook.filter(e => !e.quality),
           },
         ].filter(g => g.entries.length > 0);
@@ -70,20 +85,29 @@ export function Playbook({ onConfirm, onToast }: Props) {
         return (
           <div>
             {groups.map(group => (
-              <div key={group.label} style={{ marginBottom: 28 }}>
-                {/* Group header */}
+              <div key={group.label} style={{ marginBottom: 32 }}>
+                {/* Group header — full-width divider bar */}
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  marginBottom: 12, padding: '8px 14px',
-                  background: group.bg, border: `1px solid ${group.border}`,
-                  borderRadius: 'var(--radius-sm)', width: 'fit-content',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  marginBottom: 14,
+                  paddingLeft: 14, paddingRight: 18,
+                  paddingTop: 11, paddingBottom: 11,
+                  background: group.accent,
+                  borderRadius: 'var(--radius-sm)',
+                  borderLeft: `4px solid ${group.leftBar}`,
                 }}>
-                  <span style={{ fontSize: 14 }}>{group.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: group.color }}>
+                  <span style={{ fontSize: 18 }}>{group.icon}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.2px', color: group.textColor }}>
                     {group.label}
                   </span>
-                  <span style={{ fontSize: 11.5, color: 'var(--text-muted)', marginLeft: 2 }}>
-                    ({group.entries.length})
+                  <span style={{
+                    fontSize: 11.5, fontWeight: 600,
+                    background: 'rgba(0,0,0,0.25)',
+                    color: group.dimColor,
+                    padding: '2px 8px', borderRadius: 20,
+                    fontFamily: 'var(--font-mono)',
+                  }}>
+                    {group.entries.length} {group.entries.length === 1 ? 'setup' : 'setups'}
                   </span>
                 </div>
 
