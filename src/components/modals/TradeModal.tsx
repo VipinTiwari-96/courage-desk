@@ -263,12 +263,31 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                     )}
                   </label>
                   <select className="form-control" value={form.setup || ''} onChange={e => handleSetupChange(e.target.value)}>
-                    <option value="">Select setup...</option>
-                    {playbook.map(pb => (
-                      <option key={pb.id} value={pb.name}>
-                        {pb.quality ? `${pb.quality} · ` : ''}{pb.name}
-                      </option>
-                    ))}
+                    <option value="">— Select setup —</option>
+                    {/* A+ group */}
+                    {playbook.filter(pb => pb.quality === 'A+').length > 0 && (
+                      <optgroup label="⭐ A+ Setups">
+                        {playbook.filter(pb => pb.quality === 'A+').map(pb => (
+                          <option key={pb.id} value={pb.name}>{pb.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {/* A group */}
+                    {playbook.filter(pb => pb.quality === 'A').length > 0 && (
+                      <optgroup label="✅ A Setups">
+                        {playbook.filter(pb => pb.quality === 'A').map(pb => (
+                          <option key={pb.id} value={pb.name}>{pb.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {/* Ungraded */}
+                    {playbook.filter(pb => !pb.quality).length > 0 && (
+                      <optgroup label="📋 Ungraded">
+                        {playbook.filter(pb => !pb.quality).map(pb => (
+                          <option key={pb.id} value={pb.name}>{pb.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   {form.setup && (
                     <div style={{ marginTop: 4, fontSize: 11 }}>

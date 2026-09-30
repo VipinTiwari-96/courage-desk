@@ -50,9 +50,45 @@ export function Playbook({ onConfirm, onToast }: Props) {
           <h3>No setups defined</h3>
           <p>Create your first playbook entry to document a trading setup.</p>
         </div>
-      ) : (
-        <div className="playbook-grid">
-          {playbook.map((e) => (
+      ) : (() => {
+        // Group by quality grade: A+ → A → ungraded
+        const groups: { label: string; color: string; bg: string; border: string; icon: string; entries: typeof playbook }[] = [
+          {
+            label: 'A+ Setups', color: '#bbf7d0', bg: 'rgba(22,101,52,0.18)', border: 'rgba(34,197,94,0.35)', icon: '🏆',
+            entries: playbook.filter(e => e.quality === 'A+'),
+          },
+          {
+            label: 'A Setups', color: '#4ade80', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.2)', icon: '✅',
+            entries: playbook.filter(e => e.quality === 'A'),
+          },
+          {
+            label: 'Ungraded Setups', color: 'var(--text-muted)', bg: 'var(--bg-input)', border: 'var(--border)', icon: '📋',
+            entries: playbook.filter(e => !e.quality),
+          },
+        ].filter(g => g.entries.length > 0);
+
+        return (
+          <div>
+            {groups.map(group => (
+              <div key={group.label} style={{ marginBottom: 28 }}>
+                {/* Group header */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  marginBottom: 12, padding: '8px 14px',
+                  background: group.bg, border: `1px solid ${group.border}`,
+                  borderRadius: 'var(--radius-sm)', width: 'fit-content',
+                }}>
+                  <span style={{ fontSize: 14 }}>{group.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: group.color }}>
+                    {group.label}
+                  </span>
+                  <span style={{ fontSize: 11.5, color: 'var(--text-muted)', marginLeft: 2 }}>
+                    ({group.entries.length})
+                  </span>
+                </div>
+
+                <div className="playbook-grid">
+                  {group.entries.map((e) => (
             <div
               key={e.id}
               className="playbook-card"
@@ -177,9 +213,13 @@ export function Playbook({ onConfirm, onToast }: Props) {
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Modals */}
       {modalEntry !== undefined && (
