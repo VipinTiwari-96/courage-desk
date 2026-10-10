@@ -18,7 +18,7 @@ export interface Trade {
   poi?: string;
   setup?: string;
   confirmations?: string[];
-  emotion?: string;
+  emotion?: string[];
   mistakes?: string[];
   rules?: boolean[];
   planFollowed?: boolean;

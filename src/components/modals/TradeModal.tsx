@@ -335,8 +335,8 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
             <div className="form-section">
               <div className="section-title">🎭 Psychology</div>
               <div className="form-group">
-                <label className="form-label">Emotional State</label>
-                <div className="toggle-group" style={{ flexWrap: 'wrap' }}>
+                <label className="form-label">Emotional State <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(select all that apply)</span></label>
+                <div className="checkbox-group">
                   {[
                     { state: 'Calm',       icon: '😌' },
                     { state: 'Focused',    icon: '🎯' },
@@ -345,17 +345,24 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                     { state: 'Fear',       icon: '😨' },
                     { state: 'FOMO',       icon: '😤' },
                     { state: 'Revenge',    icon: '😠' },
-                  ].map(({ state, icon }) => (
-                    <button
-                      key={state}
-                      type="button"
-                      className={`toggle-btn${form.emotion === state ? ' active' : ''}`}
-                      onClick={() => set('emotion', form.emotion === state ? '' : state)}
-                      style={{ fontSize: 12.5 }}
-                    >
-                      {icon} {state}
-                    </button>
-                  ))}
+                  ].map(({ state, icon }) => {
+                    const emotions = (form.emotion as string[] | undefined) || [];
+                    return (
+                      <label key={state} className="checkbox-item">
+                        <input
+                          type="checkbox"
+                          checked={emotions.includes(state)}
+                          onChange={() => {
+                            const next = emotions.includes(state)
+                              ? emotions.filter(e => e !== state)
+                              : [...emotions, state];
+                            set('emotion', next);
+                          }}
+                        />
+                        <span>{icon} {state}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             </div>

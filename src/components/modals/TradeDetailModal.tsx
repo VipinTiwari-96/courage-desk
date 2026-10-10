@@ -62,7 +62,7 @@ export function TradeDetailModal({ trade, onClose, onEdit, onDelete }: Props) {
                 {[
                   ['HTF Bias', [trade.htfBias, trade.htfTf].filter(Boolean).join(' ')],
                   ['Intraday Bias', [trade.idBias, trade.idTf].filter(Boolean).join(' ')],
-                  ['Emotion', trade.emotion],
+                  ['Emotion', Array.isArray(trade.emotion) ? trade.emotion.join(' · ') : trade.emotion],
                 ].map(([label, val]) => val ? (
                   <div key={label as string} className="detail-row">
                     <span className="detail-label">{label}</span>
