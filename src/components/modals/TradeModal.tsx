@@ -59,7 +59,7 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
     set('quality', val);
   };
 
-  const toggleList = (key: 'confirmations' | 'mistakes', val: string) => {
+  const toggleList = (key: 'confirmations', val: string) => {
     const arr = (form[key] as string[]) || [];
     set(key, arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
   };
@@ -334,23 +334,27 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
             {/* Psychology */}
             <div className="form-section">
               <div className="section-title">🎭 Psychology</div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="form-label">Emotional State</label>
-                  <select className="form-control" value={form.emotion || ''} onChange={e => set('emotion', e.target.value)}>
-                    <option value="">Select state...</option>
-                    {['Calm','Focused','Fear','FOMO','Revenge','Hesitation','Confident'].map(e => <option key={e}>{e}</option>)}
-                  </select>
-                </div>
-              </div>
               <div className="form-group">
-                <label className="form-label">❌ Mistakes Made</label>
-                <div className="checkbox-group">
-                  {settings.mistakes.map(m => (
-                    <label key={m} className="checkbox-item">
-                      <input type="checkbox" checked={(form.mistakes || []).includes(m)} onChange={() => toggleList('mistakes', m)} />
-                      <span>{m}</span>
-                    </label>
+                <label className="form-label">Emotional State</label>
+                <div className="toggle-group" style={{ flexWrap: 'wrap' }}>
+                  {[
+                    { state: 'Calm',       icon: '😌' },
+                    { state: 'Focused',    icon: '🎯' },
+                    { state: 'Confident',  icon: '💪' },
+                    { state: 'Hesitation', icon: '😟' },
+                    { state: 'Fear',       icon: '😨' },
+                    { state: 'FOMO',       icon: '😤' },
+                    { state: 'Revenge',    icon: '😠' },
+                  ].map(({ state, icon }) => (
+                    <button
+                      key={state}
+                      type="button"
+                      className={`toggle-btn${form.emotion === state ? ' active' : ''}`}
+                      onClick={() => set('emotion', form.emotion === state ? '' : state)}
+                      style={{ fontSize: 12.5 }}
+                    >
+                      {icon} {state}
+                    </button>
                   ))}
                 </div>
               </div>
