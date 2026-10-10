@@ -48,7 +48,7 @@ export function TradeDetailModal({ trade, onClose, onEdit, onDelete }: Props) {
                   ['Session', trade.session],
                   ['Trade Type', trade.type],
                   ['Setup', trade.setup],
-                  ['POI', trade.poi],
+                  ['POI', Array.isArray(trade.poi) ? trade.poi.join(' · ') : trade.poi],
                   ['Risk Amount', trade.risk != null ? `$${trade.risk}` : null],
                   ['R:R Ratio', trade.rr != null ? `1:${trade.rr}` : null],
                 ].map(([label, val]) => val ? (

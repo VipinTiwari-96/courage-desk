@@ -246,12 +246,28 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                     ))}
                   </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">POI</label>
-                  <select className="form-control" value={form.poi || ''} onChange={e => set('poi', e.target.value)}>
-                    <option value="">Select POI...</option>
-                    {settings.pois.map(p => <option key={p}>{p}</option>)}
-                  </select>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">POI <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(select all that apply)</span></label>
+                  <div className="checkbox-group">
+                    {settings.pois.map(p => {
+                      const pois = (form.poi as string[] | undefined) || [];
+                      return (
+                        <label key={p} className="checkbox-item">
+                          <input
+                            type="checkbox"
+                            checked={pois.includes(p)}
+                            onChange={() => {
+                              const next = pois.includes(p)
+                                ? pois.filter(x => x !== p)
+                                : [...pois, p];
+                              set('poi', next);
+                            }}
+                          />
+                          <span>{p}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">

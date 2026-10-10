@@ -15,7 +15,7 @@ export interface Trade {
   htfTf?: string;
   idBias?: string;
   idTf?: string;
-  poi?: string;
+  poi?: string[];
   setup?: string;
   confirmations?: string[];
   emotion?: string[];
