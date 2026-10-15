@@ -51,7 +51,12 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
 
   return (
     <>
-      <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      <Lightbox
+        src={lightboxSrc}
+        images={images.filter(Boolean) as string[]}
+        onClose={() => setLightboxSrc(null)}
+        onNavigate={setLightboxSrc}
+      />
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal" onClick={e => e.stopPropagation()}>
           <div className="modal-header">

@@ -257,7 +257,12 @@ export function Playbook({ onConfirm, onToast }: Props) {
       {/* Detail */}
       {detailEntry && (
         <>
-          <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+          <Lightbox
+            src={lightboxSrc}
+            images={detailEntry?.screenshots?.filter(Boolean) as string[] | undefined}
+            onClose={() => setLightboxSrc(null)}
+            onNavigate={setLightboxSrc}
+          />
           <div className="modal-overlay" onClick={() => setDetailEntry(null)}>
             <div
               className="modal modal-lg"

@@ -22,7 +22,12 @@ export function TradeDetailModal({ trade, onClose, onEdit, onDelete }: Props) {
 
   return (
     <>
-      <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      <Lightbox
+        src={lightboxSrc}
+        images={[trade.beforeImg, trade.afterImg].filter(Boolean) as string[]}
+        onClose={() => setLightboxSrc(null)}
+        onNavigate={setLightboxSrc}
+      />
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
