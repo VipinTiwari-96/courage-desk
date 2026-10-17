@@ -61,21 +61,61 @@ export function Statistics() {
       });
     }
 
-    // Win rate by setup
+    // Win rate by field — returns full stats for rich tooltips
     const winRateBy = (field: 'setup' | 'session') => {
-      const map: Record<string, { wins: number; total: number }> = {};
+      const map: Record<string, { wins: number; losses: number; total: number }> = {};
       trades.forEach(t => {
         const v = t[field]; if (!v) return;
-        if (!map[v]) map[v] = { wins: 0, total: 0 };
+        if (!map[v]) map[v] = { wins: 0, losses: 0, total: 0 };
         map[v].total++;
-        if (t.result === 'Win') map[v].wins++;
+        if (t.result === 'Win')  map[v].wins++;
+        if (t.result === 'Loss') map[v].losses++;
       });
-      return Object.entries(map).map(([label, d]) => ({ label, wr: Math.round((d.wins / d.total) * 100) }));
+      return Object.entries(map).map(([label, d]) => ({
+        label,
+        wr: Math.round((d.wins / d.total) * 100),
+        wins: d.wins,
+        losses: d.losses,
+        be: d.total - d.wins - d.losses,
+        total: d.total,
+      }));
     };
 
     if (refs.setup.current) {
       const d = winRateBy('setup');
-      charts.current.setup = new Chart(refs.setup.current, { type: 'bar', data: { labels: d.map(x => x.label), datasets: [{ data: d.map(x => x.wr), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 4, borderSkipped: false as const }] }, options: opts(100) as never });
+      // Store full stats on dataset so tooltip can read them
+      charts.current.setup = new Chart(refs.setup.current, {
+        type: 'bar',
+        data: {
+          labels: d.map(x => x.label),
+          datasets: [{
+            data: d.map(x => x.wr),
+            backgroundColor: 'rgba(99,102,241,0.7)',
+            borderRadius: 4,
+            borderSkipped: false as const,
+          }],
+        },
+        options: {
+          ...opts(100),
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx: import("chart.js").TooltipItem<"bar">) => {
+                  const entry = d[ctx.dataIndex];
+                  return [
+                    ` Win Rate: ${entry.wr}%`,
+                    ` Trades:   ${entry.total}`,
+                    ` Wins:     ${entry.wins}`,
+                    ` Losses:   ${entry.losses}`,
+                    ...(entry.be > 0 ? [` BE:       ${entry.be}`] : []),
+                  ];
+                },
+              },
+            },
+          },
+        } as never,
+      });
     }
     if (refs.session.current) {
       const d = winRateBy('session');
