@@ -5,7 +5,9 @@ import { calcStats } from '../utils';
 
 Chart.register(...registerables);
 
-export function Statistics() {
+interface Props { onDrilldown: (setupName: string) => void; }
+
+export function Statistics({ onDrilldown }: Props) {
   const { trades, theme } = useStore();
   const refs = {
     monthly: useRef<HTMLCanvasElement>(null),
@@ -84,23 +86,37 @@ export function Statistics() {
     if (refs.setup.current) {
       const d = winRateBy('setup');
       // Store full stats on dataset so tooltip can read them
-      charts.current.setup = new Chart(refs.setup.current, {
+      const setupCanvas = refs.setup.current;
+      charts.current.setup = new Chart(setupCanvas, {
         type: 'bar',
         data: {
           labels: d.map(x => x.label),
           datasets: [{
             data: d.map(x => x.wr),
             backgroundColor: 'rgba(99,102,241,0.7)',
+            hoverBackgroundColor: 'rgba(99,102,241,1)',
             borderRadius: 4,
             borderSkipped: false as const,
           }],
         },
         options: {
           ...opts(100),
+          // Make cursor a pointer on hover to hint it's clickable
+          onHover: (_evt: unknown, elements: unknown[]) => {
+            setupCanvas.style.cursor = elements.length ? 'pointer' : 'default';
+          },
+          onClick: (_evt: unknown, elements: unknown[]) => {
+            const el = (elements as { index: number }[])[0];
+            if (el == null) return;
+            onDrilldown(d[el.index].label);
+          },
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
+                title: (items: import("chart.js").TooltipItem<"bar">[]) => {
+                  return d[items[0].dataIndex].label;
+                },
                 label: (ctx: import("chart.js").TooltipItem<"bar">) => {
                   const entry = d[ctx.dataIndex];
                   return [
@@ -109,6 +125,8 @@ export function Statistics() {
                     ` Wins:     ${entry.wins}`,
                     ` Losses:   ${entry.losses}`,
                     ...(entry.be > 0 ? [` BE:       ${entry.be}`] : []),
+                    ``,
+                    ` 👆 Click to see all trades`,
                   ];
                 },
               },

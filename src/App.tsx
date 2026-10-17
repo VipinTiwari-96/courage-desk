@@ -8,6 +8,7 @@ import { Statistics } from './pages/Statistics';
 import { Playbook } from './pages/Playbook';
 import { Settings } from './pages/Settings';
 import { MindsetRisk } from './pages/MindsetRisk';
+import { SetupDrilldown } from './pages/SetupDrilldown';
 import { TradeModal } from './components/modals/TradeModal';
 import { TradeDetailModal } from './components/modals/TradeDetailModal';
 import { ToastContainer } from './components/ui/ToastContainer';
@@ -20,7 +21,8 @@ type Page = 'dashboard' | 'calendar' | 'trades' | 'statistics' | 'playbook' | 'm
 
 export default function App() {
   const { loadAll, trades, deleteTrade, theme } = useStore();
-  const [page, setPage] = useState<Page>('dashboard');
+  const [page, setPage] = useState<Page>('statistics');
+  const [drilldownSetup, setDrilldownSetup] = useState<string | null>(null);
   const [tradeModal, setTradeModal] = useState<{ open: boolean; tradeId?: number }>({ open: false });
   const [detailTradeId, setDetailTradeId] = useState<number | null>(null);
   const { toasts, showToast } = useToast();
@@ -35,11 +37,15 @@ export default function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); setTradeModal({ open: true }); }
-      if (e.key === 'Escape') { setTradeModal({ open: false }); setDetailTradeId(null); }
+      if (e.key === 'Escape') {
+        if (drilldownSetup) { setDrilldownSetup(null); return; }
+        setTradeModal({ open: false });
+        setDetailTradeId(null);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [drilldownSetup]);
 
   const detailTrade: Trade | null = detailTradeId ? trades.find(t => t.id === detailTradeId) ?? null : null;
 
@@ -56,6 +62,7 @@ export default function App() {
 
   const handleEditTrade = (id: number) => {
     setDetailTradeId(null);
+    setDrilldownSetup(null);
     setTradeModal({ open: true, tradeId: id });
   };
 
@@ -64,18 +71,34 @@ export default function App() {
     showToast(msg, 'success');
   };
 
+  const handleNavigate = (p: Page) => {
+    setDrilldownSetup(null); // clear drilldown when switching pages
+    setPage(p);
+  };
+
   return (
     <div className="app-layout">
-      <Sidebar current={page} onNavigate={setPage} onAddTrade={() => setTradeModal({ open: true })} />
+      <Sidebar current={page} onNavigate={handleNavigate} onAddTrade={() => setTradeModal({ open: true })} />
 
       <main className="main-content">
-        {page === 'dashboard'  && <Dashboard onAddTrade={() => setTradeModal({ open: true })} onTradeClick={handleTradeClick} />}
-        {page === 'calendar'   && <Calendar onTradeClick={handleTradeClick} />}
-        {page === 'trades'     && <Trades onTradeClick={handleTradeClick} onAddTrade={() => setTradeModal({ open: true })} onEditTrade={handleEditTrade} />}
-        {page === 'statistics' && <Statistics />}
-        {page === 'playbook'   && <Playbook onConfirm={confirm} onToast={showToast} />}
-        {page === 'mindsetrisk' && <MindsetRisk onToast={showToast} />}
-        {page === 'settings'   && <Settings onConfirm={confirm} onToast={showToast} />}
+        {/* Setup drilldown overlays Statistics page */}
+        {drilldownSetup ? (
+          <SetupDrilldown
+            setupName={drilldownSetup}
+            onBack={() => setDrilldownSetup(null)}
+            onEditTrade={handleEditTrade}
+          />
+        ) : (
+          <>
+            {page === 'dashboard'   && <Dashboard onAddTrade={() => setTradeModal({ open: true })} onTradeClick={handleTradeClick} />}
+            {page === 'calendar'    && <Calendar onTradeClick={handleTradeClick} />}
+            {page === 'trades'      && <Trades onTradeClick={handleTradeClick} onAddTrade={() => setTradeModal({ open: true })} onEditTrade={handleEditTrade} />}
+            {page === 'statistics'  && <Statistics onDrilldown={setDrilldownSetup} />}
+            {page === 'playbook'    && <Playbook onConfirm={confirm} onToast={showToast} />}
+            {page === 'mindsetrisk' && <MindsetRisk onToast={showToast} />}
+            {page === 'settings'    && <Settings onConfirm={confirm} onToast={showToast} />}
+          </>
+        )}
       </main>
 
       <button className="fab" onClick={() => setTradeModal({ open: true })} title="Log Trade (Ctrl+N)">＋</button>
