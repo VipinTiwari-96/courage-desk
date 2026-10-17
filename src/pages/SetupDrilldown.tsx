@@ -46,10 +46,9 @@ export function SetupDrilldown({ setupName, onBack, onEditTrade }: Props) {
     showToast('Trade deleted', 'info');
   };
 
-  const pnlCls = stats.totalPnl >= 0 ? 'text-green' : 'text-red';
 
   return (
-    <div className="page">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <ToastContainer toasts={toasts} />
       <Lightbox
         src={lightboxSrc}
@@ -78,39 +77,55 @@ export function SetupDrilldown({ setupName, onBack, onEditTrade }: Props) {
         </div>
       )}
 
-      {/* Header */}
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      {/* ── Sticky header ───────────────────────────────────────────────── */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 10,
+        background: 'var(--bg-primary)',
+        borderBottom: '1px solid var(--border)',
+        padding: '12px 28px 14px',
+        backdropFilter: 'blur(8px)',
+      }}>
+        {/* Back + title row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <button
             onClick={onBack}
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '7px 14px', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '5px 12px', color: 'var(--text-secondary)', fontSize: 12.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s', flexShrink: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg-card-hover)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)'; }}
           >
-            ← Back
+            ← Back to Statistics
           </button>
           <div>
-            <div className="page-title">📋 {setupName}</div>
-            <div className="page-subtitle">Setup drill-down — all trades & screenshots</div>
+            <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.3px' }}>📋 {setupName}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>Setup drill-down</span>
           </div>
+        </div>
+
+        {/* Compact stat pills — single horizontal row */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Trades',  value: String(stats.total), sub: `${stats.wins}W ${stats.losses}L`, cls: '' },
+            { label: 'Win Rate', value: `${stats.winRate}%`, cls: stats.winRate >= 50 ? 'var(--green)' : 'var(--red)' },
+            { label: 'P&L',     value: fmtPnl(stats.totalPnl), cls: stats.totalPnl >= 0 ? 'var(--green)' : 'var(--red)' },
+            { label: 'Avg R:R', value: stats.avgRR, cls: '' },
+            { label: 'Prof. Factor', value: stats.profitFactor, cls: parseFloat(stats.profitFactor) >= 1 ? 'var(--green)' : 'var(--red)' },
+            { label: 'Expectancy', value: `$${stats.expectancy}`, cls: parseFloat(stats.expectancy) >= 0 ? 'var(--green)' : 'var(--red)' },
+          ].map(({ label, value, sub, cls }) => (
+            <div key={label} style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)', padding: '6px 12px',
+              display: 'flex', flexDirection: 'column', gap: 1,
+            }}>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{label}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-mono)', color: cls || 'var(--text-primary)' }}>{value}</span>
+              {sub && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{sub}</span>}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Summary stats row */}
-      <div className="stats-grid" style={{ marginBottom: 24 }}>
-        {[
-          { label: 'Total Trades', value: String(stats.total), sub: `${stats.wins}W / ${stats.losses}L / ${stats.be}BE` },
-          { label: 'Win Rate',     value: `${stats.winRate}%`, cls: stats.winRate >= 50 ? 'text-green' : 'text-red' },
-          { label: 'Total P&L',    value: fmtPnl(stats.totalPnl), cls: pnlCls },
-          { label: 'Avg R:R',      value: stats.avgRR },
-          { label: 'Profit Factor',value: stats.profitFactor, cls: parseFloat(stats.profitFactor) >= 1 ? 'text-green' : 'text-red' },
-          { label: 'Expectancy',   value: `$${stats.expectancy}`, cls: parseFloat(stats.expectancy) >= 0 ? 'text-green' : 'text-red' },
-        ].map(({ label, value, sub, cls }) => (
-          <div className="stat-card" key={label}>
-            <div className="stat-label">{label}</div>
-            <div className={`stat-value${cls ? ' ' + cls : ''}`} style={{ fontSize: 20 }}>{value}</div>
-            {sub && <div className="stat-sub">{sub}</div>}
-          </div>
-        ))}
-      </div>
+      {/* ── Scrollable content ────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px 40px' }}>
 
       {setupTrades.length === 0 ? (
         <div className="empty-state">
@@ -198,6 +213,7 @@ export function SetupDrilldown({ setupName, onBack, onEditTrade }: Props) {
           })}
         </div>
       )}
+      </div>  {/* end scrollable */}
     </div>
   );
 }

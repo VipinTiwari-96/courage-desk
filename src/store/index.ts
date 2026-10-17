@@ -64,6 +64,24 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   savePlaybook: async (entry) => {
+    // If this is an edit (has id) and the name changed, update all trades that
+    // reference the old name — single source of truth for setup names
+    if (entry.id) {
+      const existing = await PlaybookRepo.getAll();
+      const old = existing.find(p => p.id === entry.id);
+      if (old && old.name !== entry.name) {
+        const allTrades = await TradeRepo.getAll();
+        const affected = allTrades.filter(t => t.setup === old.name);
+        for (const trade of affected) {
+          await TradeRepo.save({ ...trade, setup: entry.name });
+        }
+        if (affected.length > 0) {
+          // Refresh trades in store
+          const updatedTrades = await TradeRepo.getAll();
+          set({ trades: updatedTrades });
+        }
+      }
+    }
     await PlaybookRepo.save(entry);
     const playbook = await PlaybookRepo.getAll();
     set({ playbook });
