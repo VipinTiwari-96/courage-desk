@@ -80,16 +80,38 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
       return;
     }
     setSaving(true);
-    const ruleChecks = settings.rules.map((_, i) => !!(form.rules as boolean[] || [])[i]);
-    await saveTrade({
-      ...form,
-      rules: ruleChecks,
-      planFollowed: ruleChecks.length > 0 && ruleChecks.every(Boolean),
-      createdAt: trade?.createdAt || new Date().toISOString(),
-    } as Trade);
-    setSaving(false);
-    onSave(trade ? 'Trade updated ✓' : 'Trade logged ✓');
-    onClose();
+    try {
+      const ruleChecks = settings.rules.map((_, i) => !!(form.rules as boolean[] || [])[i]);
+      // Sanitise: strip undefined values that IndexedDB rejects in some browsers
+      // Strip only undefined — keep null (e.g. cleared images) and all other values
+      const clean = Object.fromEntries(
+        Object.entries({ ...form }).filter(([, v]) => v !== undefined)
+      ) as Partial<Trade>;
+
+      // Warn if images are very large (>2 MB each) — compress further
+      const checkImg = (img: string | null | undefined, label: string) => {
+        if (img && img.length > 2_500_000) {
+          console.warn(`${label} image is large (${(img.length / 1024 / 1024).toFixed(1)} MB) — may be slow to save`);
+        }
+      };
+      checkImg(clean.beforeImg, 'Before');
+      checkImg(clean.afterImg, 'After');
+
+      const payload: Trade = {
+        ...clean,
+        rules: ruleChecks,
+        planFollowed: ruleChecks.length > 0 && ruleChecks.every(Boolean),
+        createdAt: trade?.createdAt || new Date().toISOString(),
+      } as Trade;
+      await saveTrade(payload);
+      onSave(trade ? 'Trade updated ✓' : 'Trade logged ✓');
+      onClose();
+    } catch (err) {
+      console.error('Failed to save trade:', err);
+      onSave('__error__Failed to save trade. Check console for details.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Only 3 quality options now: A+, A, B
