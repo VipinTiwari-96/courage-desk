@@ -59,20 +59,8 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
     set('quality', val);
   };
 
-  const toggleList = (key: 'confirmations', val: string) => {
-    const arr = (form[key] as string[]) || [];
-    set(key, arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
-  };
 
-  const toggleRule = (i: number) => {
-    const arr = [...((form.rules as boolean[]) || [])];
-    arr[i] = !arr[i];
-    set('rules', arr);
-    const allChecked = settings.rules.length > 0 && arr.every(Boolean);
-    set('planFollowed', allChecked);
-  };
 
-  const allRulesChecked = settings.rules.length > 0 && (form.rules as boolean[] || []).every(Boolean) && (form.rules as boolean[] || []).length === settings.rules.length;
 
   const handleSave = async () => {
     if (!form.asset || !form.direction || !form.result || !form.date) {
@@ -170,37 +158,31 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
               </div>
             </div>
 
-            {/* 2 — Setup Checklist */}
-            <div className="form-section">
-              <div className="section-title">☑️ Setup Checklist</div>
-              {settings.rules.map((r, i) => (
-                <div key={i} className="rule-item">
-                  <input type="checkbox" id={`rule-${i}`} checked={!!(form.rules as boolean[] || [])[i]} onChange={() => toggleRule(i)} />
-                  <label htmlFor={`rule-${i}`}>{r}</label>
-                </div>
-              ))}
-              {settings.rules.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  {allRulesChecked
-                    ? <span className="plan-followed">✓ Plan Followed ({settings.rules.length}/{settings.rules.length} rules)</span>
-                    : <span className="plan-violated">✕ Plan Not Fully Followed ({(form.rules as boolean[] || []).filter(Boolean).length}/{settings.rules.length} rules)</span>}
-                </div>
-              )}
-            </div>
 
-            {/* 3 — Confirmations */}
+            {/* POI — after Emotional State */}
             <div className="form-section">
-              <div className="section-title">✅ Confirmations</div>
+              <div className="section-title">📍 Point of Interest</div>
               <div className="checkbox-group">
-                {settings.confirmations.map(conf => (
-                  <label key={conf} className="checkbox-item">
-                    <input type="checkbox" checked={(form.confirmations || []).includes(conf)} onChange={() => toggleList('confirmations', conf)} />
-                    <span>{conf}</span>
-                  </label>
-                ))}
+                {settings.pois.map(p => {
+                  const pois = (form.poi as string[] | undefined) || [];
+                  return (
+                    <label key={p} className="checkbox-item">
+                      <input
+                        type="checkbox"
+                        checked={pois.includes(p)}
+                        onChange={() => {
+                          const next = pois.includes(p)
+                            ? pois.filter(x => x !== p)
+                            : [...pois, p];
+                          set('poi', next);
+                        }}
+                      />
+                      <span>{p}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
-
 
             {/* Trade Info */}
             <div className="form-section">
@@ -331,29 +313,6 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                     {['15m', '1H'].map(v => (
                       <button key={v} className={`toggle-btn${form.idTf === v ? ' active' : ''}`} onClick={() => set('idTf', form.idTf === v ? '' : v)}>{v}</button>
                     ))}
-                  </div>
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">POI <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(select all that apply)</span></label>
-                  <div className="checkbox-group">
-                    {settings.pois.map(p => {
-                      const pois = (form.poi as string[] | undefined) || [];
-                      return (
-                        <label key={p} className="checkbox-item">
-                          <input
-                            type="checkbox"
-                            checked={pois.includes(p)}
-                            onChange={() => {
-                              const next = pois.includes(p)
-                                ? pois.filter(x => x !== p)
-                                : [...pois, p];
-                              set('poi', next);
-                            }}
-                          />
-                          <span>{p}</span>
-                        </label>
-                      );
-                    })}
                   </div>
                 </div>
                 <div className="form-group">
