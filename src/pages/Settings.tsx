@@ -115,7 +115,7 @@ export function Settings({ onConfirm, onToast }: Props) {
     { key: 'sessions',      title: 'Trading Sessions',  icon: '⏰' },
     { key: 'confirmations', title: 'Confirmations',     icon: '✅' },
     { key: 'pois',          title: 'POI Types',         icon: '📍' },
-    { key: 'rules',         title: 'Rule Checklist',    icon: '📏' },
+    { key: 'rules',         title: 'Setup Checklist',   icon: '☑️' },
     { key: 'mistakes',      title: 'Mistake Types',     icon: '❌' },
   ];
 
