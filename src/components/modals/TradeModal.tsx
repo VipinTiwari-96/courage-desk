@@ -137,6 +137,71 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
 
           <div className="modal-body">
 
+            {/* 1 — Emotional State */}
+            <div className="form-section">
+              <div className="section-title">🎭 Emotional State</div>
+              <div className="checkbox-group">
+                {[
+                  { state: 'Calm',       icon: '😌' },
+                  { state: 'Focused',    icon: '🎯' },
+                  { state: 'Confident',  icon: '💪' },
+                  { state: 'Hesitation', icon: '😟' },
+                  { state: 'Fear',       icon: '😨' },
+                  { state: 'FOMO',       icon: '😤' },
+                  { state: 'Revenge',    icon: '😠' },
+                ].map(({ state, icon }) => {
+                  const emotions = (form.emotion as string[] | undefined) || [];
+                  return (
+                    <label key={state} className="checkbox-item">
+                      <input
+                        type="checkbox"
+                        checked={emotions.includes(state)}
+                        onChange={() => {
+                          const next = emotions.includes(state)
+                            ? emotions.filter(e => e !== state)
+                            : [...emotions, state];
+                          set('emotion', next);
+                        }}
+                      />
+                      <span>{icon} {state}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2 — Setup Checklist */}
+            <div className="form-section">
+              <div className="section-title">☑️ Setup Checklist</div>
+              {settings.rules.map((r, i) => (
+                <div key={i} className="rule-item">
+                  <input type="checkbox" id={`rule-${i}`} checked={!!(form.rules as boolean[] || [])[i]} onChange={() => toggleRule(i)} />
+                  <label htmlFor={`rule-${i}`}>{r}</label>
+                </div>
+              ))}
+              {settings.rules.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  {allRulesChecked
+                    ? <span className="plan-followed">✓ Plan Followed ({settings.rules.length}/{settings.rules.length} rules)</span>
+                    : <span className="plan-violated">✕ Plan Not Fully Followed ({(form.rules as boolean[] || []).filter(Boolean).length}/{settings.rules.length} rules)</span>}
+                </div>
+              )}
+            </div>
+
+            {/* 3 — Confirmations */}
+            <div className="form-section">
+              <div className="section-title">✅ Confirmations</div>
+              <div className="checkbox-group">
+                {settings.confirmations.map(conf => (
+                  <label key={conf} className="checkbox-item">
+                    <input type="checkbox" checked={(form.confirmations || []).includes(conf)} onChange={() => toggleList('confirmations', conf)} />
+                    <span>{conf}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+
             {/* Trade Info */}
             <div className="form-section">
               <div className="section-title">📍 Trade Information</div>
@@ -338,70 +403,6 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
               </div>
             </div>
 
-            {/* Confirmations */}
-            {/* 1 — Emotional State (moved to top of this group) */}
-            <div className="form-section">
-              <div className="section-title">🎭 Emotional State</div>
-              <div className="checkbox-group">
-                {[
-                  { state: 'Calm',       icon: '😌' },
-                  { state: 'Focused',    icon: '🎯' },
-                  { state: 'Confident',  icon: '💪' },
-                  { state: 'Hesitation', icon: '😟' },
-                  { state: 'Fear',       icon: '😨' },
-                  { state: 'FOMO',       icon: '😤' },
-                  { state: 'Revenge',    icon: '😠' },
-                ].map(({ state, icon }) => {
-                  const emotions = (form.emotion as string[] | undefined) || [];
-                  return (
-                    <label key={state} className="checkbox-item">
-                      <input
-                        type="checkbox"
-                        checked={emotions.includes(state)}
-                        onChange={() => {
-                          const next = emotions.includes(state)
-                            ? emotions.filter(e => e !== state)
-                            : [...emotions, state];
-                          set('emotion', next);
-                        }}
-                      />
-                      <span>{icon} {state}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 2 — Setup Checklist (renamed from Rule Checklist) */}
-            <div className="form-section">
-              <div className="section-title">☑️ Setup Checklist</div>
-              {settings.rules.map((r, i) => (
-                <div key={i} className="rule-item">
-                  <input type="checkbox" id={`rule-${i}`} checked={!!(form.rules as boolean[] || [])[i]} onChange={() => toggleRule(i)} />
-                  <label htmlFor={`rule-${i}`}>{r}</label>
-                </div>
-              ))}
-              {settings.rules.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  {allRulesChecked
-                    ? <span className="plan-followed">✓ Plan Followed ({settings.rules.length}/{settings.rules.length} rules)</span>
-                    : <span className="plan-violated">✕ Plan Not Fully Followed ({(form.rules as boolean[] || []).filter(Boolean).length}/{settings.rules.length} rules)</span>}
-                </div>
-              )}
-            </div>
-
-            {/* 3 — Confirmations */}
-            <div className="form-section">
-              <div className="section-title">✅ Confirmations</div>
-              <div className="checkbox-group">
-                {settings.confirmations.map(c => (
-                  <label key={c} className="checkbox-item">
-                    <input type="checkbox" checked={(form.confirmations || []).includes(c)} onChange={() => toggleList('confirmations', c)} />
-                    <span>{c}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
 
             {/* Risk & Result */}
             <div className="form-section">
