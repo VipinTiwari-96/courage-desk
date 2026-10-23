@@ -11,19 +11,17 @@ interface Props {
 
 export function PlaybookModal({ entry, onClose, onSave }: Props) {
   const [form, setForm] = useState<Partial<PlaybookEntry>>({});
-  const [images, setImages] = useState<(string | null)[]>([null, null, null, null]);
+  const [images, setImages] = useState<string[]>([]);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const slotRef = useRef<number>(0);
 
   useEffect(() => {
     if (entry) {
       setForm({ ...entry });
-      const imgs: (string | null)[] = [...(entry.screenshots || []), null, null, null, null].slice(0, 4);
-      setImages(imgs);
+      setImages(entry.screenshots || []);
     } else {
       setForm({});
-      setImages([null, null, null, null]);
+      setImages([]);
     }
   }, [entry]);
 
@@ -31,21 +29,21 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
   const setQuality = (val: 'A+' | 'A') =>
     setForm(f => ({ ...f, quality: f.quality === val ? undefined : val }));
 
-  const openSlot = (i: number) => { slotRef.current = i; fileInputRef.current?.click(); };
-
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const compressed = await compressImage(file);
-    setImages(imgs => { const n = [...imgs]; n[slotRef.current] = compressed; return n; });
-    e.target.value = '';
+    const input = e.currentTarget;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) return;
+    const compressed = await Promise.all(files.map(compressImage));
+    setImages(current => [...current, ...compressed]);
+    input.value = '';
   };
 
-  const removeImage = (i: number) => setImages(imgs => { const n = [...imgs]; n[i] = null; return n; });
+  const removeImage = (index: number) =>
+    setImages(current => current.filter((_, i) => i !== index));
 
   const handleSave = () => {
     if (!form.name?.trim()) return;
-    onSave({ ...form, screenshots: images.filter(Boolean) as string[] } as PlaybookEntry);
+    onSave({ ...form, screenshots: images } as PlaybookEntry);
     onClose();
   };
 
@@ -53,7 +51,7 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
     <>
       <Lightbox
         src={lightboxSrc}
-        images={images.filter(Boolean) as string[]}
+        images={images}
         onClose={() => setLightboxSrc(null)}
         onNavigate={setLightboxSrc}
       />
@@ -123,32 +121,38 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
               <textarea className="form-control" rows={2} value={form.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="What makes this setup your edge?" />
             </div>
 
-            {/* Screenshot slots */}
-            <div className="section-title" style={{ marginTop: 8 }}>📸 Sample Screenshots</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>Upload chart examples illustrating this setup (up to 4)</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {images.map((img, i) => img ? (
-                <div key={i} style={{ position: 'relative', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-                  <img src={img} alt={`Sample ${i + 1}`} style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block', cursor: 'pointer' }} onClick={() => setLightboxSrc(img)} />
-                  <div style={{ position: 'absolute', top: 5, right: 5, display: 'flex', gap: 4 }}>
-                    <button className="img-action-btn" onClick={() => openSlot(i)} title="Replace">↺</button>
-                    <button className="img-action-btn del" onClick={() => removeImage(i)} title="Delete">✕</button>
-                  </div>
-                  <div style={{ position: 'absolute', bottom: 4, left: 6, fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>Sample {i + 1}</div>
-                </div>
-              ) : (
-                <div key={i}
-                  style={{ border: '2px dashed var(--border)', borderRadius: 'var(--radius-sm)', height: 110, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer', transition: 'all var(--transition)' }}
-                  onClick={() => openSlot(i)}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-                >
-                  <span style={{ fontSize: 22, opacity: 0.4 }}>📷</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sample {i + 1}</span>
-                </div>
-              ))}
+            {/* Setup Screenshots */}
+            <div className="section-title" style={{ marginTop: 8 }}>📸 Setup Screenshots</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+              Add multiple chart examples for this setup.
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+            {images.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 12 }}>
+                {images.map((img, i) => (
+                  <div key={i} style={{ position: 'relative', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                    <img
+                      src={img}
+                      alt={`Setup screenshot ${i + 1}`}
+                      style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+                      onClick={() => setLightboxSrc(img)}
+                    />
+                    <button
+                      className="img-action-btn del"
+                      onClick={() => removeImage(i)}
+                      title="Remove screenshot"
+                      aria-label={`Remove screenshot ${i + 1}`}
+                      style={{ position: 'absolute', top: 5, right: 5 }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={() => fileInputRef.current?.click()}>
+              ➕ Add screenshots
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
           </div>
           <div className="modal-footer">
             <button className="btn btn-ghost" onClick={onClose}>Cancel</button>

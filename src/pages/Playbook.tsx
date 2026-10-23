@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "../store";
 import type { PlaybookEntry } from "../types";
 import { PlaybookModal } from "../components/modals/PlaybookModal";
 import { Lightbox } from "../components/ui/Lightbox";
+import { compressImage } from "../db";
 
 interface Props {
   onConfirm: (msg: string, label?: string) => Promise<boolean>;
@@ -10,10 +11,11 @@ interface Props {
 }
 
 export function Playbook({ onConfirm, onToast }: Props) {
-  const { playbook, trades, savePlaybook, deletePlaybook } = useStore();
+  const { playbook, savePlaybook, deletePlaybook } = useStore();
   const [activeTab, setActiveTab] = useState<"setups" | "screenshots">("setups");
-  const screenshotTrades = trades.filter(t => !!t.setup && !!(t.beforeImg || t.afterImg));
-  const screenshotSetups = [...new Set(screenshotTrades.map(t => t.setup!).filter(Boolean))].sort();
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<PlaybookEntry | null>(null);
+  const screenshotCount = playbook.reduce((total, entry) => total + (entry.screenshots?.length ?? 0), 0);
   const [modalEntry, setModalEntry] = useState<
     PlaybookEntry | null | undefined
   >(undefined);
@@ -31,6 +33,27 @@ export function Playbook({ onConfirm, onToast }: Props) {
     await deletePlaybook(entry.id!);
     setDetailEntry(null);
     onToast("Entry deleted", "info");
+  };
+
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const target = uploadTargetRef.current;
+    const files = Array.from(input.files ?? []);
+    if (!target || files.length === 0) return;
+    const screenshots = await Promise.all(files.map(compressImage));
+    await savePlaybook({
+      ...target,
+      screenshots: [...(target.screenshots ?? []), ...screenshots],
+    });
+    onToast(`${files.length} screenshot${files.length === 1 ? "" : "s"} added to ${target.name}`, "success");
+    uploadTargetRef.current = null;
+    input.value = "";
+  };
+
+  const handleRemoveScreenshot = async (entry: PlaybookEntry, index: number) => {
+    const screenshots = (entry.screenshots ?? []).filter((_, i) => i !== index);
+    await savePlaybook({ ...entry, screenshots });
+    onToast("Screenshot removed", "info");
   };
 
   return (
@@ -58,8 +81,8 @@ export function Playbook({ onConfirm, onToast }: Props) {
           className={"section-tab" + (activeTab === "screenshots" ? " active" : "")}
           onClick={() => setActiveTab("screenshots")}
         >
-          Before &amp; After
-          <span style={{ marginLeft: 6, opacity: 0.7 }}>{screenshotTrades.length}</span>
+          Screenshots
+          <span style={{ marginLeft: 6, opacity: 0.7 }}>{screenshotCount}</span>
         </button>
       </div>
 
@@ -242,85 +265,87 @@ export function Playbook({ onConfirm, onToast }: Props) {
         <div>
           <Lightbox
             src={lightboxSrc}
-            images={screenshotTrades.flatMap(t => [t.beforeImg, t.afterImg].filter((img): img is string => !!img))}
+            images={playbook.flatMap(entry => entry.screenshots ?? [])}
             onClose={() => setLightboxSrc(null)}
             onNavigate={setLightboxSrc}
           />
-          {screenshotTrades.length === 0 ? (
+          {playbook.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🖼️</div>
-              <h3>No before and after screenshots yet</h3>
-              <p>Add before and after chart images to trades linked to a setup.</p>
+              <div className="empty-icon">📖</div>
+              <h3>Create a setup first</h3>
+              <p>Add a setup to your Playbook, then attach its screenshots here.</p>
             </div>
           ) : (
-            screenshotSetups.map(setupName => {
-              const examples = screenshotTrades.filter(t => t.setup === setupName);
-              return (
-                <section key={setupName} style={{ marginBottom: 28 }}>
-                  <div style={{
-                    display: "flex", alignItems: "baseline", gap: 10,
-                    marginBottom: 12, paddingBottom: 8,
-                    borderBottom: "1px solid var(--border)",
-                  }}>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>{setupName}</span>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {examples.length} {examples.length === 1 ? "trade" : "trades"}
-                    </span>
-                  </div>
-                  <div className="playbook-grid">
-                    {examples.map(trade => (
-                      <div key={trade.id} className="card">
-                        <div className="flex-between mb-12">
-                          <strong>{trade.asset}</strong>
-                          <span className="text-muted">{trade.date}</span>
-                        </div>
-                        <div style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                          gap: 10,
-                        }}>
-                          {(["beforeImg", "afterImg"] as const).map(key => (
-                            <div key={key}>
-                              <div style={{
-                                fontSize: 11, fontWeight: 600, color: "var(--text-muted)",
-                                textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6,
-                              }}>
-                                {key === "beforeImg" ? "Before" : "After"}
-                              </div>
-                              {trade[key] ? (
-                                <img
-                                  src={trade[key]!}
-                                  alt={(key === "beforeImg" ? "Before " : "After ") + trade.setup + " — " + trade.asset}
-                                  style={{
-                                    width: "100%", height: 180, objectFit: "cover",
-                                    borderRadius: "var(--radius-sm)", cursor: "pointer",
-                                  }}
-                                  onClick={() => setLightboxSrc(trade[key]!)}
-                                />
-                              ) : (
-                                <div style={{
-                                  height: 180, display: "flex", alignItems: "center",
-                                  justifyContent: "center", border: "1px dashed var(--border)",
-                                  borderRadius: "var(--radius-sm)", color: "var(--text-muted)",
-                                  fontSize: 12,
-                                }}>
-                                  No screenshot
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {playbook.map(entry => (
+                <section key={entry.id} className="card">
+                  <div className="flex-between mb-12" style={{ gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700 }}>{entry.name}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
+                        {(entry.screenshots?.length ?? 0)} {(entry.screenshots?.length ?? 0) === 1 ? "screenshot" : "screenshots"}
                       </div>
-                    ))}
+                    </div>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        uploadTargetRef.current = entry;
+                        screenshotInputRef.current?.click();
+                      }}
+                    >
+                      ➕ Add screenshots
+                    </button>
                   </div>
+                  {(entry.screenshots?.length ?? 0) > 0 ? (
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                      gap: 10,
+                    }}>
+                      {entry.screenshots!.map((img, index) => (
+                        <div key={index} style={{ position: "relative" }}>
+                          <img
+                            src={img}
+                            alt={`${entry.name} screenshot ${index + 1}`}
+                            style={{
+                              width: "100%", height: 150, objectFit: "cover",
+                              borderRadius: "var(--radius-sm)", cursor: "pointer",
+                            }}
+                            onClick={() => setLightboxSrc(img)}
+                          />
+                          <button
+                            className="img-action-btn del"
+                            title="Remove screenshot"
+                            aria-label={`Remove screenshot ${index + 1} from ${entry.name}`}
+                            style={{ position: "absolute", top: 6, right: 6 }}
+                            onClick={() => handleRemoveScreenshot(entry, index)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      No screenshots yet. Add one or more images for this setup.
+                    </div>
+                  )}
                 </section>
-              );
-            })
+              ))}
+            </div>
           )}
+          <input
+            ref={screenshotInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={handleScreenshotUpload}
+          />
         </div>
       )}
 
-      {/* Modals */}
+      {/* Modals */}      {/* Modals */}
       {modalEntry !== undefined && (
         <PlaybookModal
           entry={modalEntry}
