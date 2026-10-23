@@ -10,7 +10,10 @@ interface Props {
 }
 
 export function Playbook({ onConfirm, onToast }: Props) {
-  const { playbook, savePlaybook, deletePlaybook } = useStore();
+  const { playbook, trades, savePlaybook, deletePlaybook } = useStore();
+  const [activeTab, setActiveTab] = useState<"setups" | "screenshots">("setups");
+  const screenshotTrades = trades.filter(t => !!t.setup && !!(t.beforeImg || t.afterImg));
+  const screenshotSetups = [...new Set(screenshotTrades.map(t => t.setup!).filter(Boolean))].sort();
   const [modalEntry, setModalEntry] = useState<
     PlaybookEntry | null | undefined
   >(undefined);
@@ -44,7 +47,24 @@ export function Playbook({ onConfirm, onToast }: Props) {
         </button>
       </div>
 
-      {playbook.length === 0 ? (
+      <div className="section-tabs">
+        <button
+          className={"section-tab" + (activeTab === "setups" ? " active" : "")}
+          onClick={() => setActiveTab("setups")}
+        >
+          Setups
+        </button>
+        <button
+          className={"section-tab" + (activeTab === "screenshots" ? " active" : "")}
+          onClick={() => setActiveTab("screenshots")}
+        >
+          Before &amp; After
+          <span style={{ marginLeft: 6, opacity: 0.7 }}>{screenshotTrades.length}</span>
+        </button>
+      </div>
+
+      {activeTab === "setups" ? (
+        playbook.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📖</div>
           <h3>No setups defined</h3>
@@ -217,7 +237,88 @@ export function Playbook({ onConfirm, onToast }: Props) {
             ))}
           </div>
         );
-      })()}
+      })()
+      ) : (
+        <div>
+          <Lightbox
+            src={lightboxSrc}
+            images={screenshotTrades.flatMap(t => [t.beforeImg, t.afterImg].filter((img): img is string => !!img))}
+            onClose={() => setLightboxSrc(null)}
+            onNavigate={setLightboxSrc}
+          />
+          {screenshotTrades.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">🖼️</div>
+              <h3>No before and after screenshots yet</h3>
+              <p>Add before and after chart images to trades linked to a setup.</p>
+            </div>
+          ) : (
+            screenshotSetups.map(setupName => {
+              const examples = screenshotTrades.filter(t => t.setup === setupName);
+              return (
+                <section key={setupName} style={{ marginBottom: 28 }}>
+                  <div style={{
+                    display: "flex", alignItems: "baseline", gap: 10,
+                    marginBottom: 12, paddingBottom: 8,
+                    borderBottom: "1px solid var(--border)",
+                  }}>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{setupName}</span>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      {examples.length} {examples.length === 1 ? "trade" : "trades"}
+                    </span>
+                  </div>
+                  <div className="playbook-grid">
+                    {examples.map(trade => (
+                      <div key={trade.id} className="card">
+                        <div className="flex-between mb-12">
+                          <strong>{trade.asset}</strong>
+                          <span className="text-muted">{trade.date}</span>
+                        </div>
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                          gap: 10,
+                        }}>
+                          {(["beforeImg", "afterImg"] as const).map(key => (
+                            <div key={key}>
+                              <div style={{
+                                fontSize: 11, fontWeight: 600, color: "var(--text-muted)",
+                                textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6,
+                              }}>
+                                {key === "beforeImg" ? "Before" : "After"}
+                              </div>
+                              {trade[key] ? (
+                                <img
+                                  src={trade[key]!}
+                                  alt={(key === "beforeImg" ? "Before " : "After ") + trade.setup + " — " + trade.asset}
+                                  style={{
+                                    width: "100%", height: 180, objectFit: "cover",
+                                    borderRadius: "var(--radius-sm)", cursor: "pointer",
+                                  }}
+                                  onClick={() => setLightboxSrc(trade[key]!)}
+                                />
+                              ) : (
+                                <div style={{
+                                  height: 180, display: "flex", alignItems: "center",
+                                  justifyContent: "center", border: "1px dashed var(--border)",
+                                  borderRadius: "var(--radius-sm)", color: "var(--text-muted)",
+                                  fontSize: 12,
+                                }}>
+                                  No screenshot
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {/* Modals */}
       {modalEntry !== undefined && (
