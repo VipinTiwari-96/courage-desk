@@ -46,10 +46,20 @@ export interface PlaybookEntry {
   screenshots?: string[];
 }
 
+export interface ScreenshotExample {
+  id: string;
+  before?: string;
+  after?: string;
+  /** A legacy screenshot that predates Before/After pairs. */
+  image?: string;
+}
+
 export interface ScreenshotGroup {
   id?: number;
   name: string;
-  screenshots: string[];
+  examples: ScreenshotExample[];
+  /** Legacy image list migrated to examples on DB v3. */
+  screenshots?: string[];
 }
 
 export interface AppSettings {

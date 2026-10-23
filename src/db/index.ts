@@ -26,12 +26,23 @@ class TradeLogDB extends Dexie {
         const entries = await tx.table('playbook').toArray() as PlaybookEntry[];
         const groups = entries
           .filter(entry => (entry.screenshots?.length ?? 0) > 0)
-          .map(entry => ({ name: entry.name, screenshots: entry.screenshots! }));
+          .map(entry => ({ name: entry.name, screenshots: entry.screenshots!, examples: [] }));
         if (groups.length > 0) {
           await tx.table('screenshotGroups').bulkAdd(groups);
         }
         await tx.table('playbook').toCollection().modify((entry: PlaybookEntry) => {
           delete entry.screenshots;
+        });
+      });
+    this.version(3)
+      .stores({})
+      .upgrade(async tx => {
+        await tx.table('screenshotGroups').toCollection().modify((group: ScreenshotGroup) => {
+          group.examples = (group.screenshots ?? []).map((image, index) => ({
+            id: `legacy-${index + 1}`,
+            image,
+          }));
+          delete group.screenshots;
         });
       });
   }
