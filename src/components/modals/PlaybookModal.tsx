@@ -1,7 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { PlaybookEntry } from '../../types';
-import { compressImage } from '../../db';
-import { Lightbox } from '../ui/Lightbox';
 
 interface Props {
   entry?: PlaybookEntry | null;
@@ -11,17 +9,12 @@ interface Props {
 
 export function PlaybookModal({ entry, onClose, onSave }: Props) {
   const [form, setForm] = useState<Partial<PlaybookEntry>>({});
-  const [images, setImages] = useState<string[]>([]);
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (entry) {
       setForm({ ...entry });
-      setImages(entry.screenshots || []);
     } else {
       setForm({});
-      setImages([]);
     }
   }, [entry]);
 
@@ -29,33 +22,14 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
   const setQuality = (val: 'A+' | 'A') =>
     setForm(f => ({ ...f, quality: f.quality === val ? undefined : val }));
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.currentTarget;
-    const files = Array.from(input.files ?? []);
-    if (files.length === 0) return;
-    const compressed = await Promise.all(files.map(compressImage));
-    setImages(current => [...current, ...compressed]);
-    input.value = '';
-  };
-
-  const removeImage = (index: number) =>
-    setImages(current => current.filter((_, i) => i !== index));
-
   const handleSave = () => {
     if (!form.name?.trim()) return;
-    onSave({ ...form, screenshots: images } as PlaybookEntry);
+    onSave(form as PlaybookEntry);
     onClose();
   };
 
   return (
-    <>
-      <Lightbox
-        src={lightboxSrc}
-        images={images}
-        onClose={() => setLightboxSrc(null)}
-        onNavigate={setLightboxSrc}
-      />
-      <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
         <div className="modal" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <div className="modal-title">{entry ? 'Edit Setup' : 'Add Playbook Entry'}</div>
@@ -121,45 +95,13 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
               <textarea className="form-control" rows={2} value={form.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="What makes this setup your edge?" />
             </div>
 
-            {/* Setup Screenshots */}
-            <div className="section-title" style={{ marginTop: 8 }}>📸 Setup Screenshots</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
-              Add multiple chart examples for this setup.
-            </div>
-            {images.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 12 }}>
-                {images.map((img, i) => (
-                  <div key={i} style={{ position: 'relative', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-                    <img
-                      src={img}
-                      alt={`Setup screenshot ${i + 1}`}
-                      style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block', cursor: 'pointer' }}
-                      onClick={() => setLightboxSrc(img)}
-                    />
-                    <button
-                      className="img-action-btn del"
-                      onClick={() => removeImage(i)}
-                      title="Remove screenshot"
-                      aria-label={`Remove screenshot ${i + 1}`}
-                      style={{ position: 'absolute', top: 5, right: 5 }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button className="btn btn-ghost btn-sm" onClick={() => fileInputRef.current?.click()}>
-              ➕ Add screenshots
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
+
           </div>
           <div className="modal-footer">
             <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
             <button className="btn btn-primary" onClick={handleSave}>💾 Save</button>
           </div>
         </div>
-      </div>
-    </>
+    </div>
   );
 }
