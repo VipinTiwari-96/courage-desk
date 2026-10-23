@@ -52,32 +52,17 @@ export function Playbook({ onConfirm, onToast }: Props) {
         </div>
       ) : (() => {
         // Group by quality grade: A+ → A → ungraded
-        const groups: { label: string; accent: string; textColor: string; dimColor: string; leftBar: string; icon: string; entries: typeof playbook }[] = [
+        const groups: { label: string; entries: typeof playbook }[] = [
           {
             label: 'A+ Setups',
-            accent: 'rgba(22,101,52,0.55)',
-            textColor: '#86efac',
-            dimColor: 'rgba(134,239,172,0.55)',
-            leftBar: '#22c55e',
-            icon: '🏆',
             entries: playbook.filter(e => e.quality === 'A+'),
           },
           {
             label: 'A Setups',
-            accent: 'rgba(34,197,94,0.12)',
-            textColor: '#4ade80',
-            dimColor: 'rgba(74,222,128,0.45)',
-            leftBar: '#4ade80',
-            icon: '✅',
             entries: playbook.filter(e => e.quality === 'A'),
           },
           {
             label: 'Ungraded Setups',
-            accent: 'var(--bg-input)',
-            textColor: 'var(--text-muted)',
-            dimColor: 'var(--border-light)',
-            leftBar: 'var(--border-light)',
-            icon: '📋',
             entries: playbook.filter(e => !e.quality),
           },
         ].filter(g => g.entries.length > 0);
@@ -86,27 +71,16 @@ export function Playbook({ onConfirm, onToast }: Props) {
           <div>
             {groups.map(group => (
               <div key={group.label} style={{ marginBottom: 32 }}>
-                {/* Group header — full-width divider bar */}
+                {/* Simple section heading */}
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  marginBottom: 14,
-                  paddingLeft: 14, paddingRight: 18,
-                  paddingTop: 11, paddingBottom: 11,
-                  background: group.accent,
-                  borderRadius: 'var(--radius-sm)',
-                  borderLeft: `4px solid ${group.leftBar}`,
+                  display: 'flex', alignItems: 'baseline', gap: 10,
+                  marginBottom: 14, paddingBottom: 8,
+                  borderBottom: '1px solid var(--border)',
                 }}>
-                  <span style={{ fontSize: 18 }}>{group.icon}</span>
-                  <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.2px', color: group.textColor }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
                     {group.label}
                   </span>
-                  <span style={{
-                    fontSize: 11.5, fontWeight: 600,
-                    background: 'rgba(0,0,0,0.25)',
-                    color: group.dimColor,
-                    padding: '2px 8px', borderRadius: 20,
-                    fontFamily: 'var(--font-mono)',
-                  }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {group.entries.length} {group.entries.length === 1 ? 'setup' : 'setups'}
                   </span>
                 </div>
