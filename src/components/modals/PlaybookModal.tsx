@@ -21,7 +21,7 @@ export function PlaybookModal({ entry, onClose, onSave }: Props) {
       setImages(entry.screenshots || []);
     } else {
       setForm({});
-      setImages([null, null, null, null]);
+      setImages([]);
     }
   }, [entry]);
 
