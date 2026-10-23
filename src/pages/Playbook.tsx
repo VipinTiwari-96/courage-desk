@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useStore } from "../store";
-import type { PlaybookEntry } from "../types";
+import type { PlaybookEntry, ScreenshotGroup } from "../types";
 import { PlaybookModal } from "../components/modals/PlaybookModal";
 import { Lightbox } from "../components/ui/Lightbox";
 import { compressImage } from "../db";
@@ -11,11 +11,16 @@ interface Props {
 }
 
 export function Playbook({ onConfirm, onToast }: Props) {
-  const { playbook, savePlaybook, deletePlaybook } = useStore();
+  const {
+    playbook, screenshotGroups, savePlaybook, deletePlaybook,
+    saveScreenshotGroup, deleteScreenshotGroup,
+  } = useStore();
   const [activeTab, setActiveTab] = useState<"setups" | "screenshots">("setups");
   const screenshotInputRef = useRef<HTMLInputElement>(null);
-  const uploadTargetRef = useRef<PlaybookEntry | null>(null);
-  const screenshotCount = playbook.reduce((total, entry) => total + (entry.screenshots?.length ?? 0), 0);
+  const uploadTargetRef = useRef<ScreenshotGroup | null>(null);
+  const [groupEditor, setGroupEditor] = useState<ScreenshotGroup | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const screenshotCount = screenshotGroups.reduce((total, group) => total + group.screenshots.length, 0);
   const [modalEntry, setModalEntry] = useState<
     PlaybookEntry | null | undefined
   >(undefined);
@@ -35,25 +40,45 @@ export function Playbook({ onConfirm, onToast }: Props) {
     onToast("Entry deleted", "info");
   };
 
+  const openGroupEditor = (group?: ScreenshotGroup) => {
+    setGroupEditor(group ? { ...group } : { name: "", screenshots: [] });
+    setGroupName(group?.name ?? "");
+  };
+
+  const saveGroupName = async () => {
+    const name = groupName.trim();
+    if (!name || !groupEditor) return;
+    await saveScreenshotGroup({ ...groupEditor, name });
+    onToast(groupEditor.id ? "Screenshot setup renamed" : "Screenshot setup added", "success");
+    setGroupEditor(null);
+  };
+
   const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
     const target = uploadTargetRef.current;
     const files = Array.from(input.files ?? []);
     if (!target || files.length === 0) return;
     const screenshots = await Promise.all(files.map(compressImage));
-    await savePlaybook({
+    await saveScreenshotGroup({
       ...target,
-      screenshots: [...(target.screenshots ?? []), ...screenshots],
+      screenshots: [...target.screenshots, ...screenshots],
     });
     onToast(`${files.length} screenshot${files.length === 1 ? "" : "s"} added to ${target.name}`, "success");
     uploadTargetRef.current = null;
     input.value = "";
   };
 
-  const handleRemoveScreenshot = async (entry: PlaybookEntry, index: number) => {
-    const screenshots = (entry.screenshots ?? []).filter((_, i) => i !== index);
-    await savePlaybook({ ...entry, screenshots });
+  const handleRemoveScreenshot = async (group: ScreenshotGroup, index: number) => {
+    const screenshots = group.screenshots.filter((_, i) => i !== index);
+    await saveScreenshotGroup({ ...group, screenshots });
     onToast("Screenshot removed", "info");
+  };
+
+  const handleDeleteScreenshotGroup = async (group: ScreenshotGroup) => {
+    const ok = await onConfirm(`Delete the screenshot collection "${group.name}"?`);
+    if (!ok) return;
+    await deleteScreenshotGroup(group.id!);
+    onToast("Screenshot collection deleted", "info");
   };
 
   return (
@@ -183,53 +208,6 @@ export function Playbook({ onConfirm, onToast }: Props) {
                   {e.desc.length > 100 ? "..." : ""}
                 </div>
               )}
-              {(e.screenshots?.length ?? 0) > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 4,
-                    marginBottom: 8,
-                    overflow: "hidden",
-                    borderRadius: 6,
-                  }}
-                >
-                  {e.screenshots!.slice(0, 3).map((img, i) => (
-                    <img
-                      key={i}
-                      src={img}
-                      alt={`Sample ${i + 1}`}
-                      style={{
-                        width:
-                          e.screenshots!.length === 1
-                            ? "100%"
-                            : "calc(33.3% - 3px)",
-                        height: 56,
-                        objectFit: "cover",
-                        borderRadius: 4,
-                        flexShrink: 0,
-                      }}
-                    />
-                  ))}
-                  {e.screenshots!.length > 3 && (
-                    <div
-                      style={{
-                        width: "calc(33.3% - 3px)",
-                        height: 56,
-                        background: "var(--bg-input)",
-                        borderRadius: 4,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 12,
-                        color: "var(--text-muted)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      +{e.screenshots!.length - 3}
-                    </div>
-                  )}
-                </div>
-              )}
               <div
                 className="flex gap-8"
                 style={{ flexWrap: "wrap", marginTop: 6 }}
@@ -265,48 +243,58 @@ export function Playbook({ onConfirm, onToast }: Props) {
         <div>
           <Lightbox
             src={lightboxSrc}
-            images={playbook.flatMap(entry => entry.screenshots ?? [])}
+            images={screenshotGroups.flatMap(group => group.screenshots)}
             onClose={() => setLightboxSrc(null)}
             onNavigate={setLightboxSrc}
           />
-          {playbook.length === 0 ? (
+          <div className="flex-between mb-16">
+            <div className="page-subtitle">Screenshot collections are independent of Playbook setups.</div>
+            <button className="btn btn-primary" onClick={() => openGroupEditor()}>
+              ➕ Add screenshot setup
+            </button>
+          </div>
+          {screenshotGroups.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📖</div>
-              <h3>Create a setup first</h3>
-              <p>Add a setup to your Playbook, then attach its screenshots here.</p>
+              <div className="empty-icon">📸</div>
+              <h3>No screenshot collections yet</h3>
+              <p>Create a screenshot setup, then add multiple images to it.</p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {playbook.map(entry => (
-                <section key={entry.id} className="card">
+              {screenshotGroups.map(group => (
+                <section key={group.id} className="card">
                   <div className="flex-between mb-12" style={{ gap: 12, flexWrap: "wrap" }}>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>{entry.name}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700 }}>{group.name}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
-                        {(entry.screenshots?.length ?? 0)} {(entry.screenshots?.length ?? 0) === 1 ? "screenshot" : "screenshots"}
+                        {group.screenshots.length} {group.screenshots.length === 1 ? "screenshot" : "screenshots"}
                       </div>
                     </div>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => {
-                        uploadTargetRef.current = entry;
-                        screenshotInputRef.current?.click();
-                      }}
-                    >
-                      ➕ Add screenshots
-                    </button>
+                    <div className="flex gap-8">
+                      <button className="btn btn-ghost btn-sm" onClick={() => openGroupEditor(group)}>Rename</button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          uploadTargetRef.current = group;
+                          screenshotInputRef.current?.click();
+                        }}
+                      >
+                        ➕ Add screenshots
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteScreenshotGroup(group)}>Delete</button>
+                    </div>
                   </div>
-                  {(entry.screenshots?.length ?? 0) > 0 ? (
+                  {group.screenshots.length > 0 ? (
                     <div style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
                       gap: 10,
                     }}>
-                      {entry.screenshots!.map((img, index) => (
+                      {group.screenshots.map((img, index) => (
                         <div key={index} style={{ position: "relative" }}>
                           <img
                             src={img}
-                            alt={`${entry.name} screenshot ${index + 1}`}
+                            alt={group.name + " screenshot " + (index + 1)}
                             style={{
                               width: "100%", height: 150, objectFit: "cover",
                               borderRadius: "var(--radius-sm)", cursor: "pointer",
@@ -316,9 +304,9 @@ export function Playbook({ onConfirm, onToast }: Props) {
                           <button
                             className="img-action-btn del"
                             title="Remove screenshot"
-                            aria-label={`Remove screenshot ${index + 1} from ${entry.name}`}
+                            aria-label={"Remove screenshot " + (index + 1) + " from " + group.name}
                             style={{ position: "absolute", top: 6, right: 6 }}
-                            onClick={() => handleRemoveScreenshot(entry, index)}
+                            onClick={() => handleRemoveScreenshot(group, index)}
                           >
                             ✕
                           </button>
@@ -327,7 +315,7 @@ export function Playbook({ onConfirm, onToast }: Props) {
                     </div>
                   ) : (
                     <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      No screenshots yet. Add one or more images for this setup.
+                      No screenshots yet. Add one or more images to this collection.
                     </div>
                   )}
                 </section>
@@ -344,8 +332,34 @@ export function Playbook({ onConfirm, onToast }: Props) {
           />
         </div>
       )}
+      {groupEditor && (
+        <div className="modal-overlay" onClick={() => setGroupEditor(null)}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">{groupEditor.id ? "Rename screenshot setup" : "Add screenshot setup"}</div>
+              <button className="close-btn" onClick={() => setGroupEditor(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <label className="form-label" htmlFor="screenshot-setup-name">Screenshot setup name</label>
+              <input
+                id="screenshot-setup-name"
+                className="form-control"
+                autoFocus
+                value={groupName}
+                onChange={e => setGroupName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") void saveGroupName(); }}
+                placeholder="e.g. London Open Sweep"
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setGroupEditor(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveGroupName} disabled={!groupName.trim()}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Modals */}      {/* Modals */}
+      {/* Modals */}
       {modalEntry !== undefined && (
         <PlaybookModal
           entry={modalEntry}
@@ -357,12 +371,6 @@ export function Playbook({ onConfirm, onToast }: Props) {
       {/* Detail */}
       {detailEntry && (
         <>
-          <Lightbox
-            src={lightboxSrc}
-            images={detailEntry?.screenshots?.filter(Boolean) as string[] | undefined}
-            onClose={() => setLightboxSrc(null)}
-            onNavigate={setLightboxSrc}
-          />
           <div className="modal-overlay" onClick={() => setDetailEntry(null)}>
             <div
               className="modal modal-lg"
@@ -447,51 +455,6 @@ export function Playbook({ onConfirm, onToast }: Props) {
                       }}
                     >
                       {detailEntry.notes}
-                    </div>
-                  </div>
-                )}
-                {(detailEntry.screenshots?.length ?? 0) > 0 && (
-                  <div className="form-section" style={{ marginTop: 16 }}>
-                    <div className="section-title">📸 Sample Screenshots</div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fill,minmax(200px,1fr))",
-                        gap: 8,
-                      }}
-                    >
-                      {detailEntry.screenshots!.map((img, i) => (
-                        <div key={i} style={{ position: "relative" }}>
-                          <img
-                            src={img}
-                            alt={`Sample ${i + 1}`}
-                            style={{
-                              width: "100%",
-                              height: 140,
-                              objectFit: "cover",
-                              borderRadius: "var(--radius-sm)",
-                              cursor: "pointer",
-                              display: "block",
-                            }}
-                            onClick={() => setLightboxSrc(img)}
-                          />
-                          <div
-                            style={{
-                              position: "absolute",
-                              bottom: 5,
-                              left: 7,
-                              fontSize: 10,
-                              color: "rgba(255,255,255,0.7)",
-                              background: "rgba(0,0,0,0.5)",
-                              padding: "2px 6px",
-                              borderRadius: 4,
-                            }}
-                          >
-                            Sample {i + 1}
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 )}
