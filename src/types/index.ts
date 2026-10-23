@@ -42,7 +42,14 @@ export interface PlaybookEntry {
   timeframes?: string;
   rr?: string;
   notes?: string;
+  /** Legacy images migrated into independent ScreenshotGroup records on DB v2. */
   screenshots?: string[];
+}
+
+export interface ScreenshotGroup {
+  id?: number;
+  name: string;
+  screenshots: string[];
 }
 
 export interface AppSettings {
