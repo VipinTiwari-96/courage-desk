@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 import type { Table } from 'dexie';
-import type { Trade, PlaybookEntry } from '../types';
+import type { Trade, PlaybookEntry, ScreenshotGroup } from '../types';
 
 interface SettingsRecord {
   key: string;
@@ -11,6 +11,7 @@ class TradeLogDB extends Dexie {
   trades!: Table<Trade, number>;
   settings!: Table<SettingsRecord, string>;
   playbook!: Table<PlaybookEntry, number>;
+  screenshotGroups!: Table<ScreenshotGroup, number>;
 
   constructor() {
     super('TradeLogDB');
@@ -19,6 +20,20 @@ class TradeLogDB extends Dexie {
       settings: 'key',
       playbook: '++id, name',
     });
+    this.version(2)
+      .stores({ screenshotGroups: '++id, name' })
+      .upgrade(async tx => {
+        const entries = await tx.table('playbook').toArray() as PlaybookEntry[];
+        const groups = entries
+          .filter(entry => (entry.screenshots?.length ?? 0) > 0)
+          .map(entry => ({ name: entry.name, screenshots: entry.screenshots! }));
+        if (groups.length > 0) {
+          await tx.table('screenshotGroups').bulkAdd(groups);
+        }
+        await tx.table('playbook').toCollection().modify((entry: PlaybookEntry) => {
+          delete entry.screenshots;
+        });
+      });
   }
 }
 
@@ -69,6 +84,23 @@ export const PlaybookRepo = {
   },
   async delete(id: number): Promise<void> {
     await db.playbook.delete(id);
+  },
+};
+
+// ── Independent Screenshot Groups ─────────────────────────────
+export const ScreenshotRepo = {
+  async getAll(): Promise<ScreenshotGroup[]> {
+    return db.screenshotGroups.orderBy('name').toArray();
+  },
+  async save(group: ScreenshotGroup): Promise<number> {
+    if (group.id) {
+      await db.screenshotGroups.put(group);
+      return group.id;
+    }
+    return db.screenshotGroups.add(group);
+  },
+  async delete(id: number): Promise<void> {
+    await db.screenshotGroups.delete(id);
   },
 };
 
