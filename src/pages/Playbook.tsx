@@ -90,9 +90,15 @@ export function Playbook({ onConfirm, onToast }: Props) {
             Define and document your trading setups
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setModalEntry(null)}>
-          ➕ Add Setup
-        </button>
+        {activeTab === "setups" ? (
+          <button className="btn btn-primary" onClick={() => setModalEntry(null)}>
+            ➕ Add Setup
+          </button>
+        ) : (
+          <button className="btn btn-primary" onClick={() => openGroupEditor()}>
+            ➕ Add screenshot setup
+          </button>
+        )}
       </div>
 
       <div className="section-tabs">
@@ -247,12 +253,7 @@ export function Playbook({ onConfirm, onToast }: Props) {
             onClose={() => setLightboxSrc(null)}
             onNavigate={setLightboxSrc}
           />
-          <div className="flex-between mb-16">
-            <div className="page-subtitle">Screenshot collections are independent of Playbook setups.</div>
-            <button className="btn btn-primary" onClick={() => openGroupEditor()}>
-              ➕ Add screenshot setup
-            </button>
-          </div>
+          <div className="page-subtitle mb-16">Screenshot collections are independent of Playbook setups.</div>
           {screenshotGroups.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📸</div>
