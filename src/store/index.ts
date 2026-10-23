@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Trade, PlaybookEntry, AppSettings, Theme } from '../types';
-import { TradeRepo, PlaybookRepo, SettingsRepo, db } from '../db';
+import type { Trade, PlaybookEntry, ScreenshotGroup, AppSettings, Theme } from '../types';
+import { TradeRepo, PlaybookRepo, ScreenshotRepo, SettingsRepo, db } from '../db';
 
 const DEFAULT_SETTINGS: AppSettings = {
   assets: ['EUR/USD', 'XAU/USD', 'BTC/USD', 'GBP/USD', 'NAS100', 'US30'],
@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 interface AppStore {
   trades: Trade[];
   playbook: PlaybookEntry[];
+  screenshotGroups: ScreenshotGroup[];
   settings: AppSettings;
   theme: Theme;
   isLoading: boolean;
@@ -25,6 +26,8 @@ interface AppStore {
   deleteTrade: (id: number) => Promise<void>;
   savePlaybook: (entry: PlaybookEntry) => Promise<void>;
   deletePlaybook: (id: number) => Promise<void>;
+  saveScreenshotGroup: (group: ScreenshotGroup) => Promise<void>;
+  deleteScreenshotGroup: (id: number) => Promise<void>;
   saveSettings: (settings: AppSettings) => Promise<void>;
   toggleTheme: () => void;
   resetApp: () => Promise<void>;
@@ -33,19 +36,22 @@ interface AppStore {
 export const useStore = create<AppStore>((set, get) => ({
   trades: [],
   playbook: [],
+  screenshotGroups: [],
   settings: DEFAULT_SETTINGS,
   theme: (localStorage.getItem('tradelog-theme') as Theme) || 'dark',
   isLoading: true,
 
   loadAll: async () => {
-    const [trades, playbook, savedSettings] = await Promise.all([
+    const [trades, playbook, screenshotGroups, savedSettings] = await Promise.all([
       TradeRepo.getAll(),
       PlaybookRepo.getAll(),
+      ScreenshotRepo.getAll(),
       SettingsRepo.get('appSettings'),
     ]);
     set({
       trades,
       playbook,
+      screenshotGroups,
       settings: savedSettings ? { ...DEFAULT_SETTINGS, ...(savedSettings as AppSettings) } : DEFAULT_SETTINGS,
       isLoading: false,
     });
@@ -93,6 +99,18 @@ export const useStore = create<AppStore>((set, get) => ({
     set({ playbook });
   },
 
+  saveScreenshotGroup: async (group) => {
+    await ScreenshotRepo.save(group);
+    const screenshotGroups = await ScreenshotRepo.getAll();
+    set({ screenshotGroups });
+  },
+
+  deleteScreenshotGroup: async (id) => {
+    await ScreenshotRepo.delete(id);
+    const screenshotGroups = await ScreenshotRepo.getAll();
+    set({ screenshotGroups });
+  },
+
   saveSettings: async (settings) => {
     await SettingsRepo.set('appSettings', settings);
     set({ settings });
@@ -108,7 +126,8 @@ export const useStore = create<AppStore>((set, get) => ({
     await db.trades.clear();
     await db.settings.clear();
     await db.playbook.clear();
+    await db.screenshotGroups.clear();
     await SettingsRepo.set('appSettings', DEFAULT_SETTINGS);
-    set({ trades: [], playbook: [], settings: DEFAULT_SETTINGS });
+    set({ trades: [], playbook: [], screenshotGroups: [], settings: DEFAULT_SETTINGS });
   },
 }));
