@@ -8,6 +8,7 @@ import { Statistics } from './pages/Statistics';
 import { Playbook } from './pages/Playbook';
 import { Settings } from './pages/Settings';
 import { MindsetRisk } from './pages/MindsetRisk';
+import { Screenshots } from './pages/Screenshots';
 import { SetupDrilldown } from './pages/SetupDrilldown';
 import { TradeModal } from './components/modals/TradeModal';
 import { TradeDetailModal } from './components/modals/TradeDetailModal';
@@ -17,7 +18,7 @@ import { useToast } from './hooks/useToast';
 import { useConfirm } from './hooks/useConfirm';
 import type { Trade } from './types';
 
-type Page = 'dashboard' | 'calendar' | 'trades' | 'statistics' | 'playbook' | 'mindsetrisk' | 'settings';
+type Page = 'dashboard' | 'calendar' | 'trades' | 'statistics' | 'playbook' | 'mindsetrisk' | 'screenshots' | 'settings';
 
 export default function App() {
   const { loadAll, trades, deleteTrade, theme } = useStore();
@@ -96,6 +97,7 @@ export default function App() {
             {page === 'statistics'  && <Statistics onDrilldown={setDrilldownSetup} />}
             {page === 'playbook'    && <Playbook onConfirm={confirm} onToast={showToast} />}
             {page === 'mindsetrisk' && <MindsetRisk onToast={showToast} />}
+            {page === 'screenshots' && <Screenshots onToast={showToast} onConfirm={confirm} />}
             {page === 'settings'    && <Settings onConfirm={confirm} onToast={showToast} />}
           </>
         )}
