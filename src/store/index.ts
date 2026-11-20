@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Trade, PlaybookEntry, AppSettings, Theme } from '../types';
-import { TradeRepo, PlaybookRepo, SettingsRepo, db } from '../db';
+import { TradeRepo, PlaybookRepo, SettingsRepo, wipeAllData } from '../db';
 
 const DEFAULT_SETTINGS: AppSettings = {
   assets: ['EUR/USD', 'XAU/USD', 'BTC/USD', 'GBP/USD', 'NAS100', 'US30'],
@@ -18,6 +18,8 @@ interface AppStore {
   settings: AppSettings;
   theme: Theme;
   isLoading: boolean;
+  /** Set when the database could not be opened — shown instead of a silently empty app. */
+  dbError: string | null;
 
   loadAll: () => Promise<void>;
   saveTrade: (trade: Trade) => Promise<void>;
@@ -35,18 +37,25 @@ export const useStore = create<AppStore>((set, get) => ({
   settings: DEFAULT_SETTINGS,
   theme: (localStorage.getItem('tradelog-theme') as Theme) || 'dark',
   isLoading: true,
+  dbError: null,
 
   loadAll: async () => {
-    const [trades, playbook, savedSettings] = await Promise.all([
-      TradeRepo.getAll(),
-      PlaybookRepo.getAll(),
-      SettingsRepo.get('appSettings'),
-    ]);
-    set({
-      trades, playbook,
-      settings: savedSettings ? { ...DEFAULT_SETTINGS, ...(savedSettings as AppSettings) } : DEFAULT_SETTINGS,
-      isLoading: false,
-    });
+    try {
+      const [trades, playbook, savedSettings] = await Promise.all([
+        TradeRepo.getAll(),
+        PlaybookRepo.getAll(),
+        SettingsRepo.get('appSettings'),
+      ]);
+      set({
+        trades, playbook,
+        settings: savedSettings ? { ...DEFAULT_SETTINGS, ...(savedSettings as AppSettings) } : DEFAULT_SETTINGS,
+        isLoading: false,
+        dbError: null,
+      });
+    } catch (err) {
+      console.error('Could not open the TradeLog database:', err);
+      set({ isLoading: false, dbError: err instanceof Error ? `${err.name}: ${err.message}` : String(err) });
+    }
   },
 
   saveTrade: async (trade) => {
@@ -92,10 +101,7 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   resetApp: async () => {
-    await db.trades.clear();
-    await db.settings.clear();
-    await db.playbook.clear();
-    await db.screenshots.clear();
+    await wipeAllData();
     await SettingsRepo.set('appSettings', DEFAULT_SETTINGS);
     set({ trades: [], playbook: [], settings: DEFAULT_SETTINGS });
   },

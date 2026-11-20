@@ -1,14 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { Chart, registerables } from 'chart.js';
 import { useStore } from '../store';
+import { getLastBackup } from '../db';
 import { calcStats, fmtDate, fmtPnl } from '../utils';
 import { ResultBadge, DirectionBadge } from '../components/ui/Badges';
 
 Chart.register(...registerables);
 
-interface Props { onAddTrade: () => void; onTradeClick: (id: number) => void; }
+interface Props { onAddTrade: () => void; onTradeClick: (id: number) => void; onGoToSettings?: () => void; }
 
-export function Dashboard({ onAddTrade, onTradeClick }: Props) {
+export function Dashboard({ onAddTrade, onTradeClick, onGoToSettings }: Props) {
   const { trades, theme } = useStore();
   const pnlRef = useRef<HTMLCanvasElement>(null);
   const assetRef = useRef<HTMLCanvasElement>(null);
@@ -17,6 +18,9 @@ export function Dashboard({ onAddTrade, onTradeClick }: Props) {
   const assetChart = useRef<Chart | null>(null);
   const equityChart = useRef<Chart | null>(null);
   const stats = calcStats(trades);
+  const lastBackup = getLastBackup();
+  const backupAgeDays = lastBackup ? Math.floor((Date.now() - lastBackup.getTime()) / 86_400_000) : null;
+  const backupDue = trades.length > 0 && (backupAgeDays === null || backupAgeDays >= 7);
 
   const gridColor = theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)';
   const tickColor = theme === 'light' ? '#9090b0' : '#55556a';
@@ -144,6 +148,15 @@ export function Dashboard({ onAddTrade, onTradeClick }: Props) {
 
   return (
     <div className="page">
+      {backupDue && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'var(--yellow-bg)', border: '1px solid rgba(234,179,8,0.35)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', marginBottom: 18, fontSize: 13 }}>
+          <span>💾</span>
+          <span style={{ flex: 1, color: 'var(--text-secondary)' }}>
+            {lastBackup ? `Your last backup was ${backupAgeDays} days ago.` : 'You have never backed up your journal.'} Browsers can clear local data — export a backup so you can always restore it.
+          </span>
+          {onGoToSettings && <button className="btn btn-ghost btn-sm" onClick={onGoToSettings}>Back up now →</button>}
+        </div>
+      )}
       <div className="page-header">
         <div>
           <div className="page-title">Dashboard</div>

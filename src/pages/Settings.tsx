@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import type { AppSettings } from '../types';
-import { TradeRepo, PlaybookRepo } from '../db';
+import { exportBackup, importBackup, describeBackup, getLastBackup, isStoragePersistent, requestPersistentStorage } from '../db';
+import type { BackupFile } from '../db';
 
 interface Props {
   onConfirm: (msg: string, label?: string) => Promise<boolean>;
@@ -29,7 +30,10 @@ function fmtBytes(bytes: number): string {
 const AVG_TRADE_WITH_IMAGES_BYTES = 350 * 1024;
 
 export function Settings({ onConfirm, onToast }: Props) {
-  const { settings, saveSettings, resetApp } = useStore();
+  const { settings, saveSettings, resetApp, loadAll } = useStore();
+  const [persisted, setPersisted] = useState<boolean | null>(null);
+  const [lastBackup, setLastBackup] = useState<Date | null>(getLastBackup());
+  useEffect(() => { isStoragePersistent().then(setPersisted); }, []);
   const [addModal, setAddModal] = useState<{ category: Category; editIdx: number | null; value: string } | null>(null);
   const [storage, setStorage] = useState<StorageInfo>({ used: 0, total: 0, remaining: 0, tradesWithImages: 0, loading: true });
 
@@ -76,31 +80,46 @@ export function Settings({ onConfirm, onToast }: Props) {
   };
 
   const handleExport = async () => {
-    const trades = await TradeRepo.getAll();
-    const playbook = await PlaybookRepo.getAll();
-    const data = { trades, playbook, settings, exportedAt: new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tradelog-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    onToast('Data exported ✓', 'success');
+    try {
+      const { blob, counts } = await exportBackup();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tradelog-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000); // keep alive so big files finish downloading
+      setLastBackup(new Date());
+      onToast(`Backup saved — ${counts.trades} trades, ${counts.screenshots} screenshot pairs, ${counts.playbook} setups ✓`, 'success');
+    } catch (err) {
+      console.error(err);
+      onToast('Export failed. See console for details.', 'error');
+    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
-    const ok = await onConfirm('Import data? This will merge with existing data.', 'Import');
-    if (!ok) { e.target.value = ''; return; }
-    const text = await file.text();
-    const data = JSON.parse(text);
-    if (data.trades) for (const t of data.trades) { delete t.id; await TradeRepo.save(t); }
-    if (data.playbook) for (const p of data.playbook) { delete p.id; await PlaybookRepo.save(p); }
-    if (data.settings) await saveSettings({ ...settings, ...data.settings });
-    onToast('Data imported ✓', 'success');
-    e.target.value = '';
+    try {
+      let data: BackupFile;
+      try { data = JSON.parse(await file.text()); }
+      catch { onToast('That file is not valid JSON.', 'error'); return; }
+      const c = describeBackup(data);
+      const ok = await onConfirm(
+        `Restore this backup? It contains ${c.trades} trades, ${c.playbook} playbook setups and ${c.screenshots} screenshot pairs. ` +
+        `This REPLACES the matching data currently in the app. If anything goes wrong, nothing is changed.`,
+        'Restore'
+      );
+      if (!ok) return;
+      await importBackup(data);
+      await loadAll();
+      onToast('Backup restored ✓', 'success');
+    } catch (err) {
+      console.error(err);
+      onToast(err instanceof Error ? err.message : 'Import failed.', 'error');
+    } finally {
+      input.value = '';
+    }
   };
 
   const handleReset = async () => {
@@ -224,9 +243,30 @@ export function Settings({ onConfirm, onToast }: Props) {
           <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 12 }}>
             🗂 Data Management
           </div>
+          <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)' }}>
+              <span>{lastBackup ? '✅' : '⚠️'}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                Last backup: <strong>{lastBackup ? lastBackup.toLocaleString() : 'never'}</strong>
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+              <span>{persisted ? '🔒' : '⚠️'}</span>
+              <span style={{ color: 'var(--text-secondary)', flex: 1 }}>
+                Browser storage: <strong style={{ color: persisted ? 'var(--green)' : 'var(--yellow)' }}>{persisted ? 'protected from auto-cleanup' : 'not protected — browser may clear it'}</strong>
+              </span>
+              {!persisted && (
+                <button className="btn btn-ghost btn-sm" onClick={async () => {
+                  const granted = await requestPersistentStorage();
+                  setPersisted(granted);
+                  onToast(granted ? 'Storage is now protected ✓' : 'The browser declined. Keep regular backups instead.', granted ? 'success' : 'info');
+                }}>Request protection</button>
+              )}
+            </div>
+          </div>
           <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
-            <button className="btn btn-ghost btn-sm" onClick={handleExport}>⬇️ Export JSON</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => document.getElementById('import-file')?.click()}>⬆️ Import JSON</button>
+            <button className="btn btn-ghost btn-sm" onClick={handleExport}>⬇️ Export Backup (everything)</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => document.getElementById('import-file')?.click()}>⬆️ Restore Backup</button>
             <button className="btn btn-danger btn-sm" onClick={handleReset}>🗑️ Reset All Data</button>
             <input type="file" id="import-file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
           </div>

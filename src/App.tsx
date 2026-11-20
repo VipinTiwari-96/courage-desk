@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './store';
+import { requestPersistentStorage } from './db';
 import { Sidebar } from './components/layout/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Calendar } from './pages/Calendar';
@@ -21,7 +22,7 @@ import type { Trade } from './types';
 type Page = 'dashboard' | 'calendar' | 'trades' | 'statistics' | 'playbook' | 'mindsetrisk' | 'screenshots' | 'settings';
 
 export default function App() {
-  const { loadAll, trades, deleteTrade, theme } = useStore();
+  const { loadAll, trades, deleteTrade, theme, dbError } = useStore();
   const [page, setPage] = useState<Page>('statistics');
   const [drilldownSetup, setDrilldownSetup] = useState<string | null>(null);
   const [tradeModal, setTradeModal] = useState<{ open: boolean; tradeId?: number }>({ open: false });
@@ -33,7 +34,11 @@ export default function App() {
     document.body.className = theme === 'light' ? 'light' : '';
   }, [theme]);
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+    // Ask the browser to treat this journal as permanent so it is never auto-evicted.
+    requestPersistentStorage();
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -77,6 +82,23 @@ export default function App() {
     setPage(p);
   };
 
+  if (dbError) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div className="card" style={{ maxWidth: 560, borderTop: '3px solid var(--red)' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>⚠️ Your journal could not be opened</div>
+          <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, fontSize: 13.5 }}>
+            Your data has <strong>not</strong> been deleted — the browser could not open its storage.
+            Please <strong>don’t clear site data</strong> or reset the app. Try reloading, and make sure you are
+            using the same browser and the same web address you always use.
+          </p>
+          <pre style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 12, whiteSpace: 'pre-wrap', color: 'var(--red)' }}>{dbError}</pre>
+          <button className="btn btn-primary" onClick={() => window.location.reload()}>↻ Reload</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-layout">
       <Sidebar current={page} onNavigate={handleNavigate} onAddTrade={() => setTradeModal({ open: true })} />
@@ -91,7 +113,7 @@ export default function App() {
           />
         ) : (
           <>
-            {page === 'dashboard'   && <Dashboard onAddTrade={() => setTradeModal({ open: true })} onTradeClick={handleTradeClick} />}
+            {page === 'dashboard'   && <Dashboard onAddTrade={() => setTradeModal({ open: true })} onTradeClick={handleTradeClick} onGoToSettings={() => handleNavigate('settings')} />}
             {page === 'calendar'    && <Calendar onTradeClick={handleTradeClick} />}
             {page === 'trades'      && <Trades onTradeClick={handleTradeClick} onAddTrade={() => setTradeModal({ open: true })} onEditTrade={handleEditTrade} />}
             {page === 'statistics'  && <Statistics onDrilldown={setDrilldownSetup} />}
