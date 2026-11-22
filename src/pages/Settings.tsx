@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import type { AppSettings } from '../types';
 import { exportBackup, importBackup, describeBackup, getLastBackup, isStoragePersistent, requestPersistentStorage } from '../db';
 import type { BackupFile } from '../db';
+import { canInstall, isInstalled, onInstallChange, promptInstall } from '../utils/pwa';
 
 interface Props {
   onConfirm: (msg: string, label?: string) => Promise<boolean>;
@@ -34,6 +35,19 @@ export function Settings({ onConfirm, onToast }: Props) {
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [lastBackup, setLastBackup] = useState<Date | null>(getLastBackup());
   useEffect(() => { isStoragePersistent().then(setPersisted); }, []);
+  const [installable, setInstallable] = useState(canInstall());
+  useEffect(() => onInstallChange(() => setInstallable(canInstall())), []);
+  const installed = isInstalled();
+
+  const checkProtection = async () => {
+    const granted = await requestPersistentStorage();
+    setPersisted(granted);
+    onToast(granted ? 'Storage is now protected ✓' : 'Still not protected — follow the steps below, then try again.', granted ? 'success' : 'info');
+  };
+  const handleInstall = async () => {
+    const r = await promptInstall();
+    if (r === 'accepted') onToast('Installing… open it from your desktop/taskbar, then press “Check again”.', 'success');
+  };
   const [addModal, setAddModal] = useState<{ category: Category; editIdx: number | null; value: string } | null>(null);
   const [storage, setStorage] = useState<StorageInfo>({ used: 0, total: 0, remaining: 0, tradesWithImages: 0, loading: true });
 
@@ -255,14 +269,22 @@ export function Settings({ onConfirm, onToast }: Props) {
               <span style={{ color: 'var(--text-secondary)', flex: 1 }}>
                 Browser storage: <strong style={{ color: persisted ? 'var(--green)' : 'var(--yellow)' }}>{persisted ? 'protected from auto-cleanup' : 'not protected — browser may clear it'}</strong>
               </span>
-              {!persisted && (
-                <button className="btn btn-ghost btn-sm" onClick={async () => {
-                  const granted = await requestPersistentStorage();
-                  setPersisted(granted);
-                  onToast(granted ? 'Storage is now protected ✓' : 'The browser declined. Keep regular backups instead.', granted ? 'success' : 'info');
-                }}>Request protection</button>
+              {!persisted && installable && !installed && (
+                <button className="btn btn-primary btn-sm" onClick={handleInstall}>⬇ Install as app</button>
               )}
+              {!persisted && <button className="btn btn-ghost btn-sm" onClick={checkProtection}>Check again</button>}
             </div>
+            {!persisted && (
+              <div style={{ fontSize: 12.5, lineHeight: 1.7, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-input)', border: '1px dashed var(--border-light)', color: 'var(--text-secondary)' }}>
+                <strong>Why “declined”?</strong> Chrome decides this silently. It protects sites that are <em>installed as an app</em>, bookmarked or used often. To qualify:
+                <ol style={{ margin: '6px 0 0 18px' }}>
+                  <li><strong>Install it as an app</strong> — {installed ? 'done ✓' : installable ? 'press “Install as app” above' : 'use the install icon at the right end of the address bar, or the ⋮ menu → Install'}. Your data stays: it is the same storage.</li>
+                  <li><strong>Bookmark this page</strong> (<kbd>Ctrl</kbd>+<kbd>D</kbd>).</li>
+                  <li>Press <strong>Check again</strong>.</li>
+                </ol>
+                <div style={{ marginTop: 6, color: 'var(--text-muted)' }}>Until then, data is normally only cleared when the disk is nearly full. Regular backups remain your safety net.</div>
+              </div>
+            )}
           </div>
           <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
             <button className="btn btn-ghost btn-sm" onClick={handleExport}>⬇️ Export Backup (everything)</button>
