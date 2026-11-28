@@ -2,13 +2,14 @@ import { useEffect, useRef } from 'react';
 import { Chart, registerables } from 'chart.js';
 import { useStore } from '../store';
 import { calcStats } from '../utils';
+import { getSetupStats } from '../utils/setups';
 
 Chart.register(...registerables);
 
 interface Props { onDrilldown: (setupName: string) => void; }
 
 export function Statistics({ onDrilldown }: Props) {
-  const { trades, theme } = useStore();
+  const { trades, theme, playbook } = useStore();
   const refs = {
     monthly: useRef<HTMLCanvasElement>(null),
     dist: useRef<HTMLCanvasElement>(null),
@@ -84,15 +85,16 @@ export function Statistics({ onDrilldown }: Props) {
     };
 
     if (refs.setup.current) {
-      const d = winRateBy('setup');
-      // Store full stats on dataset so tooltip can read them
+      // Playbook setups ∪ setups used in trades — the same list used everywhere (utils/setups.ts)
+      const d = getSetupStats(playbook, trades);
       const setupCanvas = refs.setup.current;
       charts.current.setup = new Chart(setupCanvas, {
         type: 'bar',
         data: {
-          labels: d.map(x => x.label),
+          // A setup with no trades yet gets a 2nd line so its empty slot is explained
+          labels: d.map(x => (x.total === 0 ? [x.name, '(no trades)'] : x.name)),
           datasets: [{
-            data: d.map(x => x.wr),
+            data: d.map(x => x.winRate), // null (no trades) draws no bar instead of a fake 0%
             backgroundColor: 'rgba(99,102,241,0.7)',
             hoverBackgroundColor: 'rgba(99,102,241,1)',
             borderRadius: 4,
@@ -101,32 +103,30 @@ export function Statistics({ onDrilldown }: Props) {
         },
         options: {
           ...opts(100),
-          // Make cursor a pointer on hover to hint it's clickable
           onHover: (_evt: unknown, elements: unknown[]) => {
             setupCanvas.style.cursor = elements.length ? 'pointer' : 'default';
           },
           onClick: (_evt: unknown, elements: unknown[]) => {
             const el = (elements as { index: number }[])[0];
             if (el == null) return;
-            onDrilldown(d[el.index].label);
+            onDrilldown(d[el.index].name);
           },
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
-                title: (items: import("chart.js").TooltipItem<"bar">[]) => {
-                  return d[items[0].dataIndex].label;
-                },
+                title: (items: import("chart.js").TooltipItem<"bar">[]) => d[items[0].dataIndex].name,
                 label: (ctx: import("chart.js").TooltipItem<"bar">) => {
-                  const entry = d[ctx.dataIndex];
+                  const e = d[ctx.dataIndex];
                   return [
-                    ` Win Rate: ${entry.wr}%`,
-                    ` Trades:   ${entry.total}`,
-                    ` Wins:     ${entry.wins}`,
-                    ` Losses:   ${entry.losses}`,
-                    ...(entry.be > 0 ? [` BE:       ${entry.be}`] : []),
-                    ``,
-                    ` 👆 Click to see all trades`,
+                    ` Win Rate: ${e.winRate}%`,
+                    ` Trades:   ${e.total}`,
+                    ` Wins:     ${e.wins}`,
+                    ` Losses:   ${e.losses}`,
+                    ...(e.be > 0 ? [` BE:       ${e.be}`] : []),
+                    ...(e.inPlaybook ? [] : ['', ' ⚠ Not in your Playbook']),
+                    '',
+                    ' 👆 Click to see all trades',
                   ];
                 },
               },
@@ -163,7 +163,7 @@ export function Statistics({ onDrilldown }: Props) {
     }
 
     return () => Object.values(charts.current).forEach(c => c.destroy());
-  }, [trades, theme]);
+  }, [trades, playbook, theme]);
 
   if (!trades.length) {
     return (

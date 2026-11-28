@@ -2,17 +2,23 @@ import { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import type { Trade } from '../types';
 import { fmtDate, fmtPnl } from '../utils';
+import { getSetupStats, sameSetup, setupGroup, setupKey } from '../utils/setups';
+
+const NO_SETUP = '__none__';
 import { ResultBadge, DirectionBadge, QualityBadge, PlanBadge } from '../components/ui/Badges';
 
 interface Props { onTradeClick: (id: number) => void; onAddTrade: () => void; onEditTrade: (id: number) => void; }
 
 export function Trades({ onTradeClick, onAddTrade, onEditTrade }: Props) {
-  const { trades, settings } = useStore();
+  const { trades, settings, playbook } = useStore();
   const [search, setSearch] = useState('');
   const [filterAsset, setFilterAsset] = useState('');
   const [filterResult, setFilterResult] = useState('');
   const [filterDir, setFilterDir] = useState('');
   const [filterQuality, setFilterQuality] = useState('');
+  const [filterSetup, setFilterSetup] = useState('');
+  // Same list as Statistics: Playbook setups ∪ setups used in trades
+  const setupOptions = useMemo(() => getSetupStats(playbook, trades), [playbook, trades]);
   const [sortField, setSortField] = useState<keyof Trade>('date');
   const [sortDir, setSortDir] = useState<1 | -1>(1);
 
@@ -29,6 +35,8 @@ export function Trades({ onTradeClick, onAddTrade, onEditTrade }: Props) {
       if (filterResult && t.result !== filterResult) return false;
       if (filterDir && t.direction !== filterDir) return false;
       if (filterQuality && t.quality !== filterQuality) return false;
+      if (filterSetup === NO_SETUP) { if (setupKey(t.setup)) return false; }
+      else if (filterSetup && !sameSetup(t.setup, filterSetup)) return false;
       return true;
     });
     result = [...result].sort((a, b) => {
@@ -38,7 +46,7 @@ export function Trades({ onTradeClick, onAddTrade, onEditTrade }: Props) {
       return av > bv ? sortDir : av < bv ? -sortDir : 0;
     });
     return result;
-  }, [trades, search, filterAsset, filterResult, filterDir, filterQuality, sortField, sortDir]);
+  }, [trades, search, filterAsset, filterResult, filterDir, filterQuality, filterSetup, sortField, sortDir]);
 
   const Th = ({ field, children }: { field: keyof Trade; children: React.ReactNode }) => (
     <th onClick={() => toggleSort(field)}>
@@ -73,11 +81,25 @@ export function Trades({ onTradeClick, onAddTrade, onEditTrade }: Props) {
           <option value="">All Directions</option>
           <option>Buy</option><option>Sell</option>
         </select>
+        <select className="form-control" style={{ width: 190 }} value={filterSetup} onChange={e => setFilterSetup(e.target.value)} aria-label="Setup name">
+          <option value="">All Setups</option>
+          <option value={NO_SETUP}>— No setup —</option>
+          {([
+            ['A+', '⭐ A+ Setups'], ['A', '✅ A Setups'], ['ungraded', '📋 Ungraded'], ['other', '⚠ Not in Playbook'],
+          ] as const).map(([g, label]) => {
+            const list = setupOptions.filter(x => setupGroup(x) === g);
+            return list.length > 0 && (
+              <optgroup key={g} label={label}>
+                {list.map(x => <option key={x.key} value={x.name}>{x.name} ({x.total})</option>)}
+              </optgroup>
+            );
+          })}
+        </select>
         <select className="form-control" style={{ width: 120 }} value={filterQuality} onChange={e => setFilterQuality(e.target.value)}>
           <option value="">All Quality</option>
           <option>A+</option><option>A</option><option>B</option><option>C</option>
         </select>
-        <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setFilterAsset(''); setFilterResult(''); setFilterDir(''); setFilterQuality(''); }}>✕ Clear</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setFilterAsset(''); setFilterResult(''); setFilterDir(''); setFilterQuality(''); setFilterSetup(''); }}>✕ Clear</button>
       </div>
 
       {filtered.length === 0 ? (

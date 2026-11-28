@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { sameSetup } from '../utils/setups';
 import type { Trade } from '../types';
 import { fmtDate, fmtPnl, calcStats } from '../utils';
 import { ResultBadge, DirectionBadge, QualityBadge } from '../components/ui/Badges';
@@ -24,7 +25,7 @@ export function SetupDrilldown({ setupName, onBack, onEditTrade }: Props) {
   const { toasts, showToast } = useToast();
 
   // All trades for this setup
-  const setupTrades = trades.filter(t => t.setup === setupName);
+  const setupTrades = trades.filter(t => sameSetup(t.setup, setupName));
   const stats = calcStats(setupTrades);
 
   // All images across all trades for this setup (for lightbox navigation)

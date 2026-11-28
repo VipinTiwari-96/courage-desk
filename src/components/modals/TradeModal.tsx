@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Trade, TradeDirection, TradeResult, TradeQuality } from '../../types';
 import { useStore } from '../../store';
+import { sameSetup } from '../../utils/setups';
 import { nowDatetimeLocal } from '../../utils';
 import { ImageUpload } from '../ui/ImageUpload';
 import { Lightbox } from '../ui/Lightbox';
@@ -37,7 +38,7 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
   const handleSetupChange = (setupName: string) => {
     // Find matching playbook entry
     const pbEntry = playbook.find(
-      p => p.name.trim().toLowerCase() === setupName.trim().toLowerCase()
+      p => sameSetup(p.name, setupName)
     );
 
     if (!qualityLocked) {
@@ -109,9 +110,9 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
     { val: 'B',  cls: 'active-b',    label: 'B',  hint: 'Setup not in playbook or partial confirmation' },
   ];
 
-  const isInPlaybook = form.setup
-    ? playbook.some(p => p.name.trim().toLowerCase() === (form.setup || '').trim().toLowerCase())
-    : false;
+  const isInPlaybook = !!form.setup && playbook.some(p => sameSetup(p.name, form.setup));
+  // The <select> value must be the Playbook's exact spelling, or it would look blank
+  const selectedSetupValue = playbook.find(p => sameSetup(p.name, form.setup))?.name ?? form.setup ?? '';
 
   return (
     <>
@@ -262,9 +263,7 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                       onClick={() => {
                         setQualityLocked(false);
                         // Re-evaluate auto
-                        const inPb = form.setup
-                          ? playbook.some(p => p.name.trim().toLowerCase() === (form.setup || '').trim().toLowerCase())
-                          : false;
+                        const inPb = isInPlaybook;
                         if (!form.setup || !inPb) set('quality', 'B');
                       }}
                     >
@@ -324,7 +323,7 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                       </span>
                     )}
                   </label>
-                  <select className="form-control" value={form.setup || ''} onChange={e => handleSetupChange(e.target.value)}>
+                  <select className="form-control" value={selectedSetupValue} onChange={e => handleSetupChange(e.target.value)}>
                     <option value="">— Select setup —</option>
                     {/* A+ group */}
                     {playbook.filter(pb => pb.quality === 'A+').length > 0 && (
@@ -348,6 +347,12 @@ export function TradeModal({ trade, onClose, onSave }: Props) {
                         {playbook.filter(pb => !pb.quality).map(pb => (
                           <option key={pb.id} value={pb.name}>{pb.name}</option>
                         ))}
+                      </optgroup>
+                    )}
+                  {/* A name already on this trade that is no longer in the Playbook must stay visible */}
+                    {form.setup && !isInPlaybook && (
+                      <optgroup label="⚠ Not in Playbook">
+                        <option value={form.setup}>{form.setup}</option>
                       </optgroup>
                     )}
                   </select>

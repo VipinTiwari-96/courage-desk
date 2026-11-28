@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Trade, PlaybookEntry, AppSettings, Theme } from '../types';
+import { sameSetup } from '../utils/setups';
 import { TradeRepo, PlaybookRepo, SettingsRepo, wipeAllData } from '../db';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -73,9 +74,9 @@ export const useStore = create<AppStore>((set, get) => ({
     if (entry.id) {
       const existing = await PlaybookRepo.getAll();
       const old = existing.find(p => p.id === entry.id);
-      if (old && old.name !== entry.name) {
+      if (old && old.name.trim() !== entry.name.trim()) {
         const allTrades = await TradeRepo.getAll();
-        const affected = allTrades.filter(t => t.setup === old.name);
+        const affected = allTrades.filter(t => sameSetup(t.setup, old.name));
         for (const trade of affected) await TradeRepo.save({ ...trade, setup: entry.name });
         if (affected.length > 0) set({ trades: await TradeRepo.getAll() });
       }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { sameSetup } from '../utils/setups';
 import type { PlaybookEntry } from '../types';
 import { PlaybookModal } from '../components/modals/PlaybookModal';
 import { Lightbox } from '../components/ui/Lightbox';
@@ -43,7 +44,7 @@ const GRADE = {
 type GradeKey = keyof typeof GRADE;
 
 export function Playbook({ onConfirm, onToast }: Props) {
-  const { playbook, savePlaybook, deletePlaybook } = useStore();
+  const { playbook, savePlaybook, deletePlaybook, trades } = useStore();
   const [modalEntry, setModalEntry] = useState<PlaybookEntry | null | undefined>(undefined);
   const [detailEntry, setDetailEntry] = useState<PlaybookEntry | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -55,7 +56,12 @@ export function Playbook({ onConfirm, onToast }: Props) {
   };
 
   const handleDelete = async (entry: PlaybookEntry) => {
-    const ok = await onConfirm('Delete this playbook entry?');
+    const used = trades.filter(t => sameSetup(t.setup, entry.name)).length;
+    const ok = await onConfirm(
+      used > 0
+        ? `Delete “${entry.name}” from your Playbook? ${used} trade${used === 1 ? ' uses' : 's use'} it. ${used === 1 ? 'It keeps' : 'They keep'} the name, but it will show as “Not in Playbook”.`
+        : 'Delete this playbook entry?'
+    );
     if (!ok) return;
     await deletePlaybook(entry.id!);
     setDetailEntry(null);
